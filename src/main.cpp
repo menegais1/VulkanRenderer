@@ -18,6 +18,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
+#include "FileManagers/Stb/stb_image.h"
 
 int const WIDTH = 500;
 int const HEIGHT = 500;

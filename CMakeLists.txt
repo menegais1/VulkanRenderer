@@ -2,7 +2,10 @@ cmake_minimum_required(VERSION 3.17)
 project(VulkanBase)
 
 set(CMAKE_CXX_STANDARD 17)
+
 find_package(Vulkan REQUIRED)
+find_package(Stb REQUIRED)
+
 ADD_SUBDIRECTORY(Dependencies/glfw-3.3.2)
 ADD_SUBDIRECTORY(Dependencies/glm)
 
@@ -25,8 +28,17 @@ add_executable(VulkanBase src/main.cpp
         src/MemoryManagement/PassThroughAllocator.cpp
         src/MemoryManagement/PassThroughAllocator.h
         src/MemoryManagement/MemoryAllocationHelpers.h
-        src/Refactoring/CreateInfoHelpers.h src/Refactoring/PresentationEngineInfo.h src/Refactoring/QueueFamilies.h src/Refactoring/PhysicalDeviceInfo.h src/Refactoring/RenderFrame.h src/Refactoring/VulkanCreateFunctions.h src/Refactoring/Buffer.h
+        src/Refactoring/CreateInfoHelpers.h
+        src/Refactoring/PresentationEngineInfo.h
+        src/Refactoring/QueueFamilies.h
+        src/Refactoring/PhysicalDeviceInfo.h
+        src/Refactoring/RenderFrame.h
+        src/Refactoring/VulkanCreateFunctions.h
+        src/Refactoring/Buffer.h
         src/AutoShaders/AutoShaders.h
-        )
+        src/FileManagers/Stb/stb_image.h)
+
+target_include_directories(VulkanBase PRIVATE ${Stb_INCLUDE_DIRS})
+
 
 target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)
