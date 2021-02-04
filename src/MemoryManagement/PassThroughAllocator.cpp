@@ -5,7 +5,7 @@
 #include "PassThroughAllocator.h"
 #include "MemoryAllocationHelpers.h"
 
-AllocationBlock PassThroughAllocator::vmalloc(VkDevice device, PhysicalDeviceInfo physicalDeviceInfo, VkMemoryRequirements requirements, VkMemoryPropertyFlagBits flags) {
+AllocationBlock PassThroughAllocator::vmalloc(VkDevice device, PhysicalDeviceInfo physicalDeviceInfo, VkMemoryRequirements requirements, VkMemoryPropertyFlags flags) {
     VkMemoryAllocateInfo vkMemoryAllocateInfo{};
     vkMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     vkMemoryAllocateInfo.allocationSize = requirements.size;

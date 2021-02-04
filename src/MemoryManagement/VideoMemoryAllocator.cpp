@@ -9,7 +9,7 @@ VideoMemoryAllocator::VideoMemoryAllocator(VkDevice device, PhysicalDeviceInfo p
 
 }
 
-AllocationBlock VideoMemoryAllocator::vmalloc(VkMemoryRequirements requirements, VkMemoryPropertyFlagBits flags) {
+AllocationBlock VideoMemoryAllocator::vmalloc(VkMemoryRequirements requirements, VkMemoryPropertyFlags flags) {
     AllocationBlock newAllocation = memoryAllocator->vmalloc(device, physicalDeviceInfo, requirements, flags);
     freeMemory -= newAllocation.vkSize;
     allocatedMemory += newAllocation.vkSize;

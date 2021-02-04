@@ -14,6 +14,9 @@
 #include "Refactoring/RenderFrame.h"
 #include "Refactoring/CommandBufferUtils.h"
 #include "Refactoring/VulkanCreateFunctions.h"
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+#include <cstring>
 
 int const WIDTH = 500;
 int const HEIGHT = 500;
@@ -28,6 +31,13 @@ void mouseButton(GLFWwindow *window, int button, int action, int modifier) {
 void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
 
 }
+
+struct VertexInput {
+    glm::vec3 position;
+    glm::vec4 color;
+
+    VertexInput(const glm::vec3 &position, const glm::vec4 &color) : position(position), color(color) {}
+};
 
 std::vector<char> loadShader(const std::string filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::in | std::ios::ate);
@@ -93,7 +103,13 @@ int main() {
     vkCreateRenderPass(vkDevice, &defaultRenderPassCreateInfo, nullptr, &defaultRenderPass);
 
 
-    VkPipelineVertexInputStateCreateInfo vertexInputState = vk::pipelineVertexInputStateCreateInfo({}, {});
+    VkVertexInputBindingDescription vertexInputBindingDescription = vk::vertexInputBindingDescription(0, sizeof(VertexInput), VK_VERTEX_INPUT_RATE_VERTEX);
+    VkVertexInputAttributeDescription attributeDescriptionPosition = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 0, offsetof(VertexInput, position));
+    VkVertexInputAttributeDescription attributeDescriptionColor = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32A32_SFLOAT, 1, offsetof(VertexInput, color));
+    std::vector<VkVertexInputBindingDescription> bindingsDescriptions = {vertexInputBindingDescription};
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {attributeDescriptionPosition, attributeDescriptionColor};
+    VkPipelineVertexInputStateCreateInfo vertexInputState = vk::pipelineVertexInputStateCreateInfo(bindingsDescriptions, attributeDescriptions);
+
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vk::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
     VkPipelineRasterizationStateCreateInfo rasterizationState = vk::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT,
                                                                                                          VK_FRONT_FACE_COUNTER_CLOCKWISE, 1.0);
@@ -154,11 +170,13 @@ int main() {
         vkCreateImageView(vkDevice, &vkImageViewCreateInfo, nullptr, &swapchainImageViews[i]);
     }
 
-    VkCommandPool graphicsPool = vk::CommandBufferUtils::createCommandPool(vkDevice, physicalDeviceInfo.queueFamilies.graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    VkCommandPool graphicsPool = vk::createCommandPool(vkDevice, vk::commandPoolCreateInfo(physicalDeviceInfo.queueFamilies.graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT));
 
 
     uint32_t renderFramesAmount = 2;
-    std::vector<VkCommandBuffer> graphicsCommandBuffers = vk::CommandBufferUtils::createCommandBuffers(vkDevice, graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+    VkCommandBuffer *graphicsCommandBuffers = {vk::allocateCommandBuffers(vkDevice,
+                                                                          vk::commandBufferAllocateInfo(graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY),
+                                                                          renderFramesAmount)};
     std::vector<RenderFrame> renderFrames(renderFramesAmount);
     for (int i = 0; i < renderFramesAmount; ++i) {
         RenderFrame renderFrame{};
@@ -169,6 +187,26 @@ int main() {
         renderFrame.frameBuffer = VK_NULL_HANDLE;
         renderFrames[i] = renderFrame;
     }
+
+
+    std::vector<VertexInput> vertexInputs = {
+            VertexInput(glm::vec3(0, 0, 0), glm::vec4(1, 0, 0, 1)),
+            VertexInput(glm::vec3(0.5, 0.5, 0), glm::vec4(0, 1, 0, 1)),
+            VertexInput(glm::vec3(0.5, 0, 0), glm::vec4(0, 0, 1, 1))
+    };
+
+    std::vector<uint32_t> vertexAndIndicesQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily};
+    VkDeviceSize memorySize = sizeof(VertexInput) * vertexInputs.size();
+    VkBuffer vertexBuffer = vk::createBuffer(vkDevice, vk::bufferCreateInfo(memorySize, vertexAndIndicesQueues,
+                                                                            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0));
+    VkMemoryRequirements vertexBufferMemoryRequirements = vk::getBufferMemoryRequirements(vkDevice, vertexBuffer);
+    AllocationBlock vertexBufferMemory = vma.vmalloc(vertexBufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    vkBindBufferMemory(vkDevice, vertexBuffer, vertexBufferMemory.vkDeviceMemory, vertexBufferMemory.vkOffset);
+    void *memoryMapping;
+    vkMapMemory(vkDevice, vertexBufferMemory.vkDeviceMemory, vertexBufferMemory.vkOffset, memorySize, 0, &memoryMapping);
+    memcpy(memoryMapping, vertexInputs.data(), memorySize);
+//    VkMappedMemoryRange vkMappedMemoryRange = vk::mappedMemoryRange(vertexBufferMemory.vkDeviceMemory,vertexBufferMemory.vkOffset, VK_WHOLE_SIZE);
+//    vkFlushMappedMemoryRanges(vkDevice, 1, &vkMappedMemoryRange);
 
     VkClearValue colorBufferClearValue;
     colorBufferClearValue.color = {1, 0, 0, 1};
@@ -187,15 +225,16 @@ int main() {
             }
             std::vector<VkImageView> framebufferAttachments = {swapchainImageViews[swapchainImageIndex]};
             currentFrame.frameBuffer = vk::createFramebuffer(vkDevice, vk::framebufferCreateInfo(0, defaultRenderPass, framebufferAttachments,
-                                                                                                    presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 1));
+                                                                                                 presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 1));
             VkRenderPassBeginInfo defaultRenderPassBeginInfo = vk::renderPassBeginInfo(defaultRenderPass, currentFrame.frameBuffer,
                                                                                        vk::rect2D(presentationEngineInfo.extents, {0, 0}), clearValues);
             vk::CommandBufferUtils::beginCommandBuffer(vkDevice, currentFrame.commandBuffer, 0);
             {
-
                 vkCmdBeginRenderPass(currentFrame.commandBuffer, &defaultRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
                 vkCmdBindPipeline(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultPipeline);
-
+                VkDeviceSize offsets = 0;
+                vkCmdBindVertexBuffers(currentFrame.commandBuffer,0,1, &vertexBuffer,&offsets);
+                vkCmdDraw(currentFrame.commandBuffer, 3, 1, 0, 0);
                 vkCmdEndRenderPass(currentFrame.commandBuffer);
             }
             vk::CommandBufferUtils::submitCommandBuffer(graphicsQueue, currentFrame.commandBuffer, {currentFrame.imageReadySemaphore},

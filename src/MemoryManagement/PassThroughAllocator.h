@@ -12,7 +12,7 @@
 
 class PassThroughAllocator : public IMemoryAllocator {
 public:
-    AllocationBlock vmalloc(VkDevice device, PhysicalDeviceInfo physicalDeviceInfo, VkMemoryRequirements requirements, VkMemoryPropertyFlagBits flags) override;
+    AllocationBlock vmalloc(VkDevice device, PhysicalDeviceInfo physicalDeviceInfo, VkMemoryRequirements requirements, VkMemoryPropertyFlags flags) override;
 
     bool vfree(VkDevice device, AllocationBlock block) override;
 

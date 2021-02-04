@@ -18,7 +18,7 @@ public:
 
     VideoMemoryAllocator(VkDevice device, PhysicalDeviceInfo physicalDeviceInfo, IMemoryAllocator *memoryAllocator);
 
-    AllocationBlock vmalloc(VkMemoryRequirements requirements, VkMemoryPropertyFlagBits flags);
+    AllocationBlock vmalloc(VkMemoryRequirements requirements, VkMemoryPropertyFlags flags);
 
     bool vfree(AllocationBlock block);
 
