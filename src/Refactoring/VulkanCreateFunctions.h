@@ -25,10 +25,40 @@ namespace vk {
         return vkSemaphore;
     }
 
-    VkFramebuffer createFramebuffer(VkDevice vkDevice, VkFramebufferCreateInfo framebufferCreateInfo){
+    VkFramebuffer createFramebuffer(VkDevice vkDevice, VkFramebufferCreateInfo framebufferCreateInfo) {
         VkFramebuffer vkFramebuffer;
         VK_ASSERT(vkCreateFramebuffer(vkDevice, &framebufferCreateInfo, nullptr, &vkFramebuffer));
         return vkFramebuffer;
+    }
+
+    VkCommandPool createCommandPool(VkDevice vkDevice, VkCommandPoolCreateInfo commandPoolCreateInfo) {
+        VkCommandPool vkCommandPool;
+        VK_ASSERT(vkCreateCommandPool(vkDevice, &commandPoolCreateInfo, nullptr, &vkCommandPool));
+        return vkCommandPool;
+    }
+
+    VkCommandBuffer *allocateCommandBuffers(VkDevice vkDevice, VkCommandBufferAllocateInfo commandBufferAllocateInfo, uint32_t commandBufferCount) {
+        VkCommandBuffer *vkCommandBuffers = new VkCommandBuffer[commandBufferCount];
+        VK_ASSERT(vkAllocateCommandBuffers(vkDevice, &commandBufferAllocateInfo, vkCommandBuffers));
+        return vkCommandBuffers;
+    }
+
+    VkMemoryRequirements getBufferMemoryRequirements(VkDevice vkDevice, VkBuffer vkBuffer) {
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetBufferMemoryRequirements(vkDevice, vkBuffer, &vkMemoryRequirements);
+        return vkMemoryRequirements;
+    }
+
+    VkMemoryRequirements getImageMemoryRequirements(VkDevice vkDevice, VkImage vkImage) {
+        VkMemoryRequirements vkMemoryRequirements;
+        vkGetImageMemoryRequirements(vkDevice, vkImage, &vkMemoryRequirements);
+        return vkMemoryRequirements;
+    }
+
+    VkBuffer createBuffer(VkDevice vkDevice, VkBufferCreateInfo bufferCreateInfo) {
+        VkBuffer vkBuffer;
+        VK_ASSERT(vkCreateBuffer(vkDevice, &bufferCreateInfo, nullptr, &vkBuffer));
+        return vkBuffer;
     }
 }
 

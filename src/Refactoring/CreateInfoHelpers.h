@@ -150,7 +150,8 @@ namespace vk {
         }
     }
 
-    inline VkBufferCreateInfo bufferCreateInfo(VkDeviceSize size, const std::vector<uint32_t> &queueFamilyIndices, VkBufferUsageFlags usage, VkSharingMode sharingMode) {
+    inline VkBufferCreateInfo bufferCreateInfo(VkDeviceSize size, const std::vector<uint32_t> &queueFamilyIndices,
+                                               VkBufferUsageFlags usage, VkSharingMode sharingMode, VkBufferCreateFlags flags) {
         VkBufferCreateInfo vkBufferCreateInfo{};
         vkBufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         vkBufferCreateInfo.size = size;
@@ -158,7 +159,7 @@ namespace vk {
         vkBufferCreateInfo.queueFamilyIndexCount = queueFamilyIndices.size();
         vkBufferCreateInfo.usage = usage;
         vkBufferCreateInfo.sharingMode = sharingMode;
-        vkBufferCreateInfo.flags = 0;
+        vkBufferCreateInfo.flags = flags;
         return vkBufferCreateInfo;
     }
 
@@ -168,6 +169,15 @@ namespace vk {
         vkMemoryAllocateInfo.allocationSize = allocationSize;
         vkMemoryAllocateInfo.memoryTypeIndex = memoryTypeIndex;
         return vkMemoryAllocateInfo;
+    }
+
+    inline VkMappedMemoryRange mappedMemoryRange(VkDeviceMemory memory, VkDeviceSize offset, VkDeviceSize size) {
+        VkMappedMemoryRange vkMappedMemoryRange{};
+        vkMappedMemoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        vkMappedMemoryRange.memory = memory;
+        vkMappedMemoryRange.offset = offset;
+        vkMappedMemoryRange.size = size;
+        return vkMappedMemoryRange;
     }
 
     inline VkInstanceCreateInfo instanceCreateInfo(const std::vector<const char *> &extensions, const std::vector<const char *> &layers, VkApplicationInfo *applicationInfo) {

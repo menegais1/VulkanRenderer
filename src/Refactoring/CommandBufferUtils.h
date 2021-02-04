@@ -17,12 +17,6 @@ namespace vk {
     class CommandBufferUtils {
     public:
 
-        static VkCommandPool createCommandPool(const VkDevice vkDevice, const int queueFamilyIndex, VkCommandPoolCreateFlags flags);
-
-        static std::vector<VkCommandBuffer> createCommandBuffers(const VkDevice vkDevice,
-                                                                 VkCommandPool const vkCommandPool,
-                                                                 const int commandBufferCount, VkCommandBufferLevel level);
-
         /*
          * Begin a command buffer and wait for fences, if any provided, reset fences automatically
          */

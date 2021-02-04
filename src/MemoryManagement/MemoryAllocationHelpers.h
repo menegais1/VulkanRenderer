@@ -8,7 +8,7 @@
 #include "../Refactoring/PhysicalDeviceInfo.h"
 
 int vulkanGetMemoryTypeIndex(PhysicalDeviceInfo physicalDeviceInfo, uint32_t memoryTypeBits,
-                             VkMemoryPropertyFlagBits flagBits) {
+                             VkMemoryPropertyFlags flagBits) {
     for (int i = 0; i < physicalDeviceInfo.physicalDeviceMemoryProperties.memoryTypeCount; ++i) {
         VkMemoryType memoryType = physicalDeviceInfo.physicalDeviceMemoryProperties.memoryTypes[i];
         if ((memoryTypeBits & (1 << i)) && (memoryType.propertyFlags & flagBits) == flagBits) {

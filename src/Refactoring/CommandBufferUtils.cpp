@@ -5,23 +5,6 @@
 #include "CommandBufferUtils.h"
 #include "CreateInfoHelpers.h"
 
-VkCommandPool
-vk::CommandBufferUtils::createCommandPool(const VkDevice vkDevice, const int queueFamilyIndex, VkCommandPoolCreateFlags flags) {
-    VkCommandPoolCreateInfo vkCommandPoolCreateInfo = vk::commandPoolCreateInfo(queueFamilyIndex, flags);
-    VkCommandPool vkCommandPool;
-    vk::VK_ASSERT(vkCreateCommandPool(vkDevice, &vkCommandPoolCreateInfo, nullptr, &vkCommandPool));
-    return vkCommandPool;
-}
-
-std::vector<VkCommandBuffer>
-vk::CommandBufferUtils::createCommandBuffers(const VkDevice vkDevice, const VkCommandPool vkCommandPool,
-                                             const int commandBufferCount, VkCommandBufferLevel level) {
-    std::vector<VkCommandBuffer> commandBuffers(commandBufferCount);
-    VkCommandBufferAllocateInfo vkCommandBufferAllocateInfo = vk::commandBufferAllocateInfo(vkCommandPool, commandBufferCount, level);
-    vk::VK_ASSERT(vkAllocateCommandBuffers(vkDevice, &vkCommandBufferAllocateInfo, commandBuffers.data()));
-    return commandBuffers;
-}
-
 void vk::CommandBufferUtils::beginCommandBuffer(VkDevice vkDevice, VkCommandBuffer commandBuffer,
                                                 VkCommandBufferUsageFlags flags, std::vector<VkFence> fences,
                                                 bool resetFences) {
