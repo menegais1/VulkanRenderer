@@ -12,7 +12,7 @@
 #define CODEBLOCKS 0
 
 
-#ifdef WINDOWS
+#ifdef WIN32
 #include <direct.h>
 #define GetCurrentDir _getcwd
 #else

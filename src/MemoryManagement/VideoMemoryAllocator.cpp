@@ -21,6 +21,7 @@ bool VideoMemoryAllocator::vfree(AllocationBlock block) {
     memoryAllocator->vfree(device, block);
     freeMemory += block.vkSize;
     allocatedMemory -= block.vkSize;
+    return true;
 }
 
 VideoMemoryAllocator::VideoMemoryAllocator() {}

@@ -26,4 +26,4 @@ add_executable(VulkanBase src/main.cpp
         src/MemoryManagement/PassThroughAllocator.h
         src/MemoryManagement/MemoryAllocationHelpers.h
         src/Refactoring/CreateInfoHelpers.h src/Refactoring/PresentationEngineInfo.h src/Refactoring/QueueFamilies.h src/Refactoring/PhysicalDeviceInfo.h src/Refactoring/RenderFrame.h src/Refactoring/VulkanCreateFunctions.h src/Refactoring/Buffer.h)
-target_link_libraries(VulkanBase glfw ${GLFW_LIBRARIES} Vulkan::Vulkan)
+target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)
