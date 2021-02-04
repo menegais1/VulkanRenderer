@@ -18,7 +18,7 @@ namespace AutoShaders
         std::string dstDir = "../src/Shaders/";
         std::cout << "Compiling shaders..." << std::endl;
 
-        for (const auto &entry : std::filesystem::directory_iterator(srcDir))
+        for (const auto &entry : std::filesystem::recursive_directory_iterator(srcDir))
         {
             if (!entry.is_regular_file())
             {

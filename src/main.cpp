@@ -129,8 +129,8 @@ int main() {
     float blendConstants[4] = {1, 1, 1, 1};
     std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
     VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-    auto vertexBytes = loadShader(FileLoader::getPath("Shaders/vulkanBase.vert.spv"));
-    auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/vulkanBase.frag.spv"));
+    auto vertexBytes = loadShader(FileLoader::getPath("Shaders/VulkanBase/vulkanBase.vert.spv"));
+    auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/VulkanBase/vulkanBase.frag.spv"));
     VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
     VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
