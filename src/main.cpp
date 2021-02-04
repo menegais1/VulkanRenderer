@@ -14,6 +14,7 @@
 #include "Refactoring/RenderFrame.h"
 #include "Refactoring/CommandBufferUtils.h"
 #include "Refactoring/VulkanCreateFunctions.h"
+#include "AutoShaders/AutoShaders.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
@@ -67,6 +68,7 @@ GLFWwindow *setupGLFW() {
 
 int main() {
 
+    AutoShaders::compile();
     GLFWwindow *window = setupGLFW();
     VulkanSetup vulkanSetup(window);
 
@@ -127,8 +129,8 @@ int main() {
     float blendConstants[4] = {1, 1, 1, 1};
     std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
     VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-    auto vertexBytes = loadShader(FileLoader::getPath("Shaders/vert.spv"));
-    auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/frag.spv"));
+    auto vertexBytes = loadShader(FileLoader::getPath("Shaders/vulkanBase.vert.spv"));
+    auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/vulkanBase.frag.spv"));
     VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
     VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 

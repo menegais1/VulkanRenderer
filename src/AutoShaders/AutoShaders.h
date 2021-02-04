@@ -1,21 +1,21 @@
 //
 // Created by Lorenzo on 2/3/12021.
 //
-#ifndef AUTO_SHADER
-#define AUTO_SHADER
+#ifndef AUTO_SHADERS
+#define AUTO_SHADERS
 #include <string>
 #include <iostream>
 #include <filesystem>
 #include <unordered_set>
-class AutoShaders
+
+namespace AutoShaders
 {
-public:
     static void compile()
     {
         std::unordered_set<std::string> endings = {".vert", ".tesc", ".tese", ".frag"};
 
-        std::string srcDir = "../Shaders/";
-        std::string dstDir = "../Shaders/";
+        std::string srcDir = "../src/Shaders/";
+        std::string dstDir = "../src/Shaders/";
         std::cout << "Compiling shaders..." << std::endl;
 
         for (const auto &entry : std::filesystem::directory_iterator(srcDir))
@@ -27,9 +27,9 @@ public:
             if (endings.count(entry.path().extension().string()) > 0)
             {
 #ifdef WIN32
-                auto cmd = glslcWindows();
+                auto cmd = std::string("%VK_SDK_PATH%/Bin/glslc.exe ");
 #else
-                auto cmd = glslcLinux();
+                auto cmd = std::string("$VULKAN_SDK/bin/glslc ");
 #endif
                 auto srcShader = entry.path().generic_string();
                 auto dstShader = dstDir + entry.path().filename().generic_string() + ".spv";
@@ -40,15 +40,5 @@ public:
         }
     }
 
-    static std::string glslcWindows()
-    {
-        return "%VK_SDK_PATH%/Bin/glslc.exe ";
-    }
-
-    static std::string glslcLinux()
-    {
-        return "$VULKAN_SDK/bin/glslc ";
-    }
-
-};
-#endif //AUTO_SHADER
+}
+#endif //AUTO_SHADERS
