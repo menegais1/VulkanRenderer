@@ -694,7 +694,7 @@ namespace vk {
     };
 
     inline VkFramebufferCreateInfo framebufferCreateInfo(VkFramebufferCreateFlags flags,
-                                                         VkRenderPass renderPass, const std::vector<VkImageView> attachments,
+                                                         VkRenderPass renderPass, const std::vector<VkImageView>& attachments,
                                                          uint32_t width, uint32_t height, uint32_t layers) {
         VkFramebufferCreateInfo vkFramebufferCreateInfo{};
         vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

@@ -1,12 +1,17 @@
 cmake_minimum_required(VERSION 3.17)
 project(VulkanBase)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
+
 find_package(Vulkan REQUIRED)
+
 ADD_SUBDIRECTORY(Dependencies/glfw-3.3.2)
 ADD_SUBDIRECTORY(Dependencies/glm)
+add_executable(VulkanBase
 
-add_executable(VulkanBase src/main.cpp
+        Dependencies/stb/stb_image.h
+
+        src/main.cpp
         src/Refactoring/VulkanSetup.cpp
         src/Refactoring/VulkanSetup.h
 #        src/VulkanStructures.h
@@ -25,5 +30,16 @@ add_executable(VulkanBase src/main.cpp
         src/MemoryManagement/PassThroughAllocator.cpp
         src/MemoryManagement/PassThroughAllocator.h
         src/MemoryManagement/MemoryAllocationHelpers.h
-        src/Refactoring/CreateInfoHelpers.h src/Refactoring/PresentationEngineInfo.h src/Refactoring/QueueFamilies.h src/Refactoring/PhysicalDeviceInfo.h src/Refactoring/RenderFrame.h src/Refactoring/VulkanCreateFunctions.h src/Refactoring/Buffer.h)
-target_link_libraries(VulkanBase glfw ${GLFW_LIBRARIES} Vulkan::Vulkan)
+        src/Refactoring/CreateInfoHelpers.h
+        src/Refactoring/PresentationEngineInfo.h
+        src/Refactoring/QueueFamilies.h
+        src/Refactoring/PhysicalDeviceInfo.h
+        src/Refactoring/RenderFrame.h
+        src/Refactoring/VulkanCreateFunctions.h
+        src/Refactoring/Buffer.h
+        src/AutoShaders/AutoShaders.h)
+
+target_include_directories(VulkanBase PRIVATE ${Stb_INCLUDE_DIRS})
+
+
+target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)
