@@ -15,9 +15,9 @@ namespace AutoShaders
         std::unordered_set<std::string> endings = {".vert", ".tesc", ".tese", ".frag"};
 
         std::string srcDir = "../src/Shaders/";
-        std::string dstDir = "../src/Shaders/";
+        std::string dstDir = "../src/Shaders/Compiled/";
         std::cout << "Compiling shaders..." << std::endl;
-
+        std::filesystem::create_directory(dstDir);
         for (const auto &entry : std::filesystem::recursive_directory_iterator(srcDir))
         {
             if (!entry.is_regular_file())

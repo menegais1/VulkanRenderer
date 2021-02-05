@@ -4,12 +4,14 @@ project(VulkanBase)
 set(CMAKE_CXX_STANDARD 17)
 
 find_package(Vulkan REQUIRED)
-find_package(Stb REQUIRED)
 
 ADD_SUBDIRECTORY(Dependencies/glfw-3.3.2)
 ADD_SUBDIRECTORY(Dependencies/glm)
+add_executable(VulkanBase
 
-add_executable(VulkanBase src/main.cpp
+        Dependencies/stb/stb_image.h
+
+        src/main.cpp
         src/Refactoring/VulkanSetup.cpp
         src/Refactoring/VulkanSetup.h
 #        src/VulkanStructures.h
@@ -35,8 +37,7 @@ add_executable(VulkanBase src/main.cpp
         src/Refactoring/RenderFrame.h
         src/Refactoring/VulkanCreateFunctions.h
         src/Refactoring/Buffer.h
-        src/AutoShaders/AutoShaders.h
-        src/FileManagers/Stb/stb_image.h)
+        src/AutoShaders/AutoShaders.h)
 
 target_include_directories(VulkanBase PRIVATE ${Stb_INCLUDE_DIRS})
 
