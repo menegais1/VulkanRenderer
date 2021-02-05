@@ -60,6 +60,24 @@ namespace vk {
         VK_ASSERT(vkCreateBuffer(vkDevice, &bufferCreateInfo, nullptr, &vkBuffer));
         return vkBuffer;
     }
+
+    VkImage createImage(VkDevice vkDevice, VkImageCreateInfo vkImageCreateInfo) {
+        VkImage vkImage;
+        VK_ASSERT(vkCreateImage(vkDevice, &vkImageCreateInfo, nullptr, &vkImage));
+        return vkImage;
+    }
+
+    VkImageView createImageView(VkDevice vkDevice, VkImageViewCreateInfo vkImageViewCreateInfo) {
+        VkImageView vkImageView;
+        VK_ASSERT(vkCreateImageView(vkDevice, &vkImageViewCreateInfo, nullptr, &vkImageView));
+        return vkImageView;
+    }
+
+    VkSampler createSampler(VkDevice vkDevice, VkSamplerCreateInfo vkSamplerCreateInfo) {
+        VkSampler vkSampler;
+        VK_ASSERT(vkCreateSampler(vkDevice, &vkSamplerCreateInfo, nullptr, &vkSampler));
+        return vkSampler;
+    }
 }
 
 #endif //VULKANBASE_VULKANCREATEFUNCTIONS_H

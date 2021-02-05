@@ -18,38 +18,6 @@
 #include "MemoryManagement/VideoMemoryAllocator.h"
 
 
-void vulkanMapMemoryWithFlush(VulkanHandles vulkanHandles, Buffer buffer, void *data) {
-    void *memoryPointer;
-    VK_ASSERT(vkMapMemory(vulkanHandles.device, buffer.memory.vkDeviceMemory, buffer.memory.vkOffset, buffer.memory.vkSize, 0,
-                          &memoryPointer));
-
-    memcpy(memoryPointer, data, buffer.size);
-
-    VkMappedMemoryRange vkMappedMemoryRange{};
-    vkMappedMemoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-    vkMappedMemoryRange.memory = buffer.memory.vkDeviceMemory;
-    vkMappedMemoryRange.size = buffer.memory.vkSize;
-    vkMappedMemoryRange.offset = buffer.memory.vkOffset;
-
-    vkFlushMappedMemoryRanges(vulkanHandles.device, 1, &vkMappedMemoryRange);
-    memoryPointer = nullptr;
-    vkUnmapMemory(vulkanHandles.device, buffer.memory.vkDeviceMemory);
-
-}
-
-Buffer allocateExclusiveBuffer(VulkanHandles vulkanHandles, PhysicalDeviceInfo physicalDeviceInfo, uint32_t size,
-                               VkBufferUsageFlags usageFlags, VkMemoryPropertyFlagBits memoryPropertyFlags) {
-    Buffer buffer{};
-    buffer.size = size;
-    buffer.buffer = vulkanAllocateExclusiveBuffer(vulkanHandles, size, usageFlags);
-    VkMemoryRequirements requirements = vulkanGetBufferMemoryRequirements(vulkanHandles, buffer.buffer);
-    buffer.memory = vma.vmalloc(requirements, memoryPropertyFlags);
-
-    VK_ASSERT(vkBindBufferMemory(vulkanHandles.device, buffer.buffer, buffer.memory.vkDeviceMemory, buffer.memory.vkOffset));
-
-    return buffer;
-}
-
 void copyBufferHostDevice(VulkanHandles vulkanHandles, PhysicalDeviceInfo physicalDeviceInfo,
                           CommandBufferStructure transferStructure, Buffer source, Buffer destination,
                           VkAccessFlags dstAccess, VkPipelineStageFlags dstStageMask, uint32_t dstQueueFamilyIndex) {

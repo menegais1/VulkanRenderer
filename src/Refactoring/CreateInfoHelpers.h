@@ -10,8 +10,6 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 
-//#define VK_ASSERT(VK_RESULT) if(VK_RESULT != VK_SUCCESS) throw std::runtime_error("ERROR ON VKRESULT");
-
 namespace vk {
 
     inline void VK_ASSERT(VkResult result) {
@@ -694,7 +692,7 @@ namespace vk {
     };
 
     inline VkFramebufferCreateInfo framebufferCreateInfo(VkFramebufferCreateFlags flags,
-                                                         VkRenderPass renderPass, const std::vector<VkImageView>& attachments,
+                                                         VkRenderPass renderPass, const std::vector<VkImageView> &attachments,
                                                          uint32_t width, uint32_t height, uint32_t layers) {
         VkFramebufferCreateInfo vkFramebufferCreateInfo{};
         vkFramebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -735,6 +733,137 @@ namespace vk {
         return vkPresentInfoKHR;
     }
 
+    inline VkBufferCopy bufferCopy(VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset) {
+        VkBufferCopy vkBufferCopy{};
+        vkBufferCopy.size = size;
+        vkBufferCopy.srcOffset = srcOffset;
+        vkBufferCopy.dstOffset = dstOffset;
+        return vkBufferCopy;
+    }
+
+    inline VkBufferMemoryBarrier bufferMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+                                                     uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex,
+                                                     VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size) {
+        VkBufferMemoryBarrier vkBufferMemoryBarrier{};
+        vkBufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        vkBufferMemoryBarrier.buffer = buffer;
+        vkBufferMemoryBarrier.size = size;
+        vkBufferMemoryBarrier.offset = offset;
+        vkBufferMemoryBarrier.srcAccessMask = srcAccessMask;
+        vkBufferMemoryBarrier.dstAccessMask = dstAccessMask;
+        vkBufferMemoryBarrier.srcQueueFamilyIndex = srcQueueFamilyIndex;
+        vkBufferMemoryBarrier.dstQueueFamilyIndex = dstQueueFamilyIndex;
+        return vkBufferMemoryBarrier;
+    }
+
+    inline VkImageMemoryBarrier imageMemoryBarrier(VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask,
+                                                   VkImageLayout oldLayout, VkImageLayout newLayout,
+                                                   uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex,
+                                                   VkImage image, VkImageSubresourceRange subresourceRange) {
+        VkImageMemoryBarrier vkImageMemoryBarrier{};
+        vkImageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        vkImageMemoryBarrier.srcAccessMask = srcAccessMask;
+        vkImageMemoryBarrier.dstAccessMask = dstAccessMask;
+        vkImageMemoryBarrier.oldLayout = oldLayout;
+        vkImageMemoryBarrier.newLayout = newLayout;
+        vkImageMemoryBarrier.srcQueueFamilyIndex = srcQueueFamilyIndex;
+        vkImageMemoryBarrier.dstQueueFamilyIndex = dstQueueFamilyIndex;
+        vkImageMemoryBarrier.image = image;
+        vkImageMemoryBarrier.subresourceRange = subresourceRange;
+        return vkImageMemoryBarrier;
+    }
+
+    inline VkBufferImageCopy bufferImageCopy(VkDeviceSize bufferOffset, uint32_t bufferRowLength, uint32_t bufferImageHeight,
+                                             VkImageSubresourceLayers imageSubresource, VkOffset3D imageOffset, VkExtent3D imageExtent) {
+        VkBufferImageCopy vkBufferImageCopy{};
+        vkBufferImageCopy.bufferOffset = bufferOffset;
+        vkBufferImageCopy.bufferRowLength = bufferRowLength;
+        vkBufferImageCopy.bufferImageHeight = bufferImageHeight;
+        vkBufferImageCopy.imageSubresource = imageSubresource;
+        vkBufferImageCopy.imageOffset = imageOffset;
+        vkBufferImageCopy.imageExtent = imageExtent;
+        return vkBufferImageCopy;
+    }
+
+    inline VkImageSubresourceLayers imageSubresourceLayers(VkImageAspectFlags aspectMask,
+                                                           uint32_t mipLevel,
+                                                           uint32_t baseArrayLayer,
+                                                           uint32_t layerCount) {
+        VkImageSubresourceLayers vkImageSubresourceLayers{};
+        vkImageSubresourceLayers.aspectMask = aspectMask;
+        vkImageSubresourceLayers.mipLevel = mipLevel;
+        vkImageSubresourceLayers.baseArrayLayer = baseArrayLayer;
+        vkImageSubresourceLayers.layerCount = layerCount;
+        return vkImageSubresourceLayers;
+    }
+
+    inline VkImageCreateInfo imageCreateInfo(VkImageCreateFlags flags, VkImageType imageType,
+                                             VkFormat format, VkExtent3D extent,
+                                             uint32_t mipLevels, uint32_t arrayLayers,
+                                             VkSampleCountFlagBits samples, VkImageTiling tiling,
+                                             VkImageUsageFlags usage, VkSharingMode sharingMode,
+                                             const std::vector<uint32_t> &queueFamilyIndices, VkImageLayout initialLayout) {
+        VkImageCreateInfo vkImageCreateInfo{};
+        vkImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        vkImageCreateInfo.flags = flags;
+        vkImageCreateInfo.imageType = imageType;
+        vkImageCreateInfo.format = format;
+        vkImageCreateInfo.extent = extent;
+        vkImageCreateInfo.mipLevels = mipLevels;
+        vkImageCreateInfo.arrayLayers = arrayLayers;
+        vkImageCreateInfo.samples = samples;
+        vkImageCreateInfo.tiling = tiling;
+        vkImageCreateInfo.usage = usage;
+        vkImageCreateInfo.sharingMode = sharingMode;
+        vkImageCreateInfo.queueFamilyIndexCount = queueFamilyIndices.size();
+        vkImageCreateInfo.pQueueFamilyIndices = queueFamilyIndices.data();
+        vkImageCreateInfo.initialLayout = initialLayout;
+        return vkImageCreateInfo;
+    }
+
+    inline VkImageViewCreateInfo imageCreateInfo(VkImageViewCreateFlags flags,
+                                                 VkImage image, VkImageViewType viewType,
+                                                 VkFormat format, VkComponentMapping components,
+                                                 VkImageSubresourceRange subresourceRange) {
+        VkImageViewCreateInfo vkImageCreateInfo{};
+        vkImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        vkImageCreateInfo.flags = flags;
+        vkImageCreateInfo.image = image;
+        vkImageCreateInfo.viewType = viewType;
+        vkImageCreateInfo.format = format;
+        vkImageCreateInfo.components = components;
+        vkImageCreateInfo.subresourceRange = subresourceRange;
+        return vkImageCreateInfo;
+    }
+
+    inline VkSamplerCreateInfo samplerCreateInfo(VkSamplerCreateFlags flags,
+                                                 VkFilter magFilter, VkFilter minFilter,
+                                                 VkSamplerMipmapMode mipmapMode, VkSamplerAddressMode addressModeU,
+                                                 VkSamplerAddressMode addressModeV, VkSamplerAddressMode addressModeW,
+                                                 float mipLodBias, VkBool32 anisotropyEnable,
+                                                 float maxAnisotropy, VkBool32 compareEnable,
+                                                 VkCompareOp compareOp, float minLod, float maxLod,
+                                                 VkBorderColor borderColor, VkBool32 unnormalizedCoordinates) {
+        VkSamplerCreateInfo vkSamplerCreateInfo{};
+        vkSamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        vkSamplerCreateInfo.flags = flags;
+        vkSamplerCreateInfo.magFilter = magFilter;
+        vkSamplerCreateInfo.minFilter = minFilter;
+        vkSamplerCreateInfo.mipmapMode = mipmapMode;
+        vkSamplerCreateInfo.addressModeU = addressModeU;
+        vkSamplerCreateInfo.addressModeV = addressModeV;
+        vkSamplerCreateInfo.addressModeW = addressModeW;
+        vkSamplerCreateInfo.mipLodBias = mipLodBias;
+        vkSamplerCreateInfo.anisotropyEnable = anisotropyEnable;
+        vkSamplerCreateInfo.maxAnisotropy = maxAnisotropy;
+        vkSamplerCreateInfo.compareEnable = compareEnable;
+        vkSamplerCreateInfo.compareOp = compareOp;
+        vkSamplerCreateInfo.minLod = minLod;
+        vkSamplerCreateInfo.maxLod = maxLod;
+        vkSamplerCreateInfo.borderColor = borderColor;
+        vkSamplerCreateInfo.unnormalizedCoordinates = unnormalizedCoordinates;
+        return vkSamplerCreateInfo;
+    }
 }
 
 #endif//VULKANBASE_CREATEINFOHELPERS_H
