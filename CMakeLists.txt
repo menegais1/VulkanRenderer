@@ -5,12 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(Vulkan REQUIRED)
 
+#Finds all .h and .cpp
+file(GLOB Dear "Dependencies/imgui/*.h" "Dependencies/imgui/*.cpp")
+
 ADD_SUBDIRECTORY(Dependencies/glfw-3.3.2)
 ADD_SUBDIRECTORY(Dependencies/glm)
+include_directories(Dependencies/imgui)
 add_executable(VulkanBase
-
         Dependencies/stb/stb_image.h
-
         src/main.cpp
         src/Refactoring/VulkanSetup.cpp
         src/Refactoring/VulkanSetup.h
@@ -37,9 +39,9 @@ add_executable(VulkanBase
         src/Refactoring/RenderFrame.h
         src/Refactoring/VulkanCreateFunctions.h
         src/Refactoring/Buffer.h
-        src/AutoShaders/AutoShaders.h)
-
-target_include_directories(VulkanBase PRIVATE ${Stb_INCLUDE_DIRS})
-
+        src/AutoShaders/AutoShaders.h
+        ${Dear}
+        src/VulkanGui.h
+        )
 
 target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)

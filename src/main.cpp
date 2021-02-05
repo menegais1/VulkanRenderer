@@ -15,6 +15,7 @@
 #include "Refactoring/CommandBufferUtils.h"
 #include "Refactoring/VulkanCreateFunctions.h"
 #include "AutoShaders/AutoShaders.h"
+#include "VulkanGui.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
@@ -71,7 +72,6 @@ int main() {
     AutoShaders::compile();
     GLFWwindow *window = setupGLFW();
     VulkanSetup vulkanSetup(window);
-
     VkDevice vkDevice = vulkanSetup.vkDevice;
     VkInstance vkInstance = vulkanSetup.vkInstance;
     VkSwapchainKHR vkSwapchainKHR = vulkanSetup.vkSwapchainKHR;
@@ -79,7 +79,7 @@ int main() {
     PhysicalDeviceInfo physicalDeviceInfo = vulkanSetup.physicalDeviceInfo;
     PresentationEngineInfo presentationEngineInfo = vulkanSetup.presentationEngineInfo;
     VideoMemoryAllocator vma = VideoMemoryAllocator(vkDevice, physicalDeviceInfo, new PassThroughAllocator());
-    VkRenderPass defaultRenderPass;
+    VkRenderPass defaultRenderPass, imGuiRenderPass;
     VkQueue graphicsQueue, presentationQueue, transferQueue, computeQueue;
 
 
@@ -88,22 +88,57 @@ int main() {
     vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.presentationFamily, 0, &presentationQueue);
     vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.transferFamily, 0, &transferQueue);
 
+    /* Default Render pass */
+    {
+        VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
+                                                                            VK_SAMPLE_COUNT_1_BIT,
+                                                                            VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                                            VK_ATTACHMENT_STORE_OP_STORE,
+                                                                            VK_IMAGE_LAYOUT_UNDEFINED,
+                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
+                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
+        VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                   attachmentReferences, {}, {}, {}, {});
+        VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
+                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+                                                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
+        std::vector<VkAttachmentDescription> attachments = {colorAttachment};
+        std::vector<VkSubpassDependency> dependencies = {externalDependency};
+        std::vector<VkSubpassDescription> subpasses = {colorSubpass};
+        VkRenderPassCreateInfo defaultRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies,
+                                                                                      subpasses);
+        vkCreateRenderPass(vkDevice, &defaultRenderPassCreateInfo, nullptr, &defaultRenderPass);
 
-    VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format, VK_SAMPLE_COUNT_1_BIT,
-                                                                        VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE,
-                                                                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
-    VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS, attachmentReferences, {}, {}, {}, {});
-    VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-                                                                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
-    std::vector<VkAttachmentDescription> attachments = {colorAttachment};
-    std::vector<VkSubpassDependency> dependencies = {externalDependency};
-    std::vector<VkSubpassDescription> subpasses = {colorSubpass};
-    VkRenderPassCreateInfo defaultRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies, subpasses);
-    vkCreateRenderPass(vkDevice, &defaultRenderPassCreateInfo, nullptr, &defaultRenderPass);
+    }
 
+    /* ImGUI Render Pass */
+    {
+        VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
+                                                                            VK_SAMPLE_COUNT_1_BIT,
+                                                                            VK_ATTACHMENT_LOAD_OP_LOAD,
+                                                                            VK_ATTACHMENT_STORE_OP_STORE,
+                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                                            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
+                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
+        VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                   attachmentReferences, {}, {}, {}, {});
+        VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
+                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+                                                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
+        std::vector<VkAttachmentDescription> attachments = {colorAttachment};
+        std::vector<VkSubpassDependency> dependencies = {externalDependency};
+        std::vector<VkSubpassDescription> subpasses = {colorSubpass};
+        VkRenderPassCreateInfo imGuiRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies,
+                                                                                      subpasses);
+        vkCreateRenderPass(vkDevice, &imGuiRenderPassCreateInfo, nullptr, &imGuiRenderPass);
+
+    }
 
     VkVertexInputBindingDescription vertexInputBindingDescription = vk::vertexInputBindingDescription(0, sizeof(VertexInput), VK_VERTEX_INPUT_RATE_VERTEX);
     VkVertexInputAttributeDescription attributeDescriptionPosition = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 0, offsetof(VertexInput, position));
@@ -130,7 +165,7 @@ int main() {
     std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
     VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
     auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/vulkanBase.vert.spv"));
-    auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/vulkanBase.frag.spv"));
+        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/vulkanBase.frag.spv"));
     VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
     VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
@@ -179,6 +214,7 @@ int main() {
     VkCommandBuffer *graphicsCommandBuffers = {vk::allocateCommandBuffers(vkDevice,
                                                                           vk::commandBufferAllocateInfo(graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY),
                                                                           renderFramesAmount)};
+
     std::vector<RenderFrame> renderFrames(renderFramesAmount);
     for (int i = 0; i < renderFramesAmount; ++i) {
         RenderFrame renderFrame{};
@@ -189,7 +225,7 @@ int main() {
         renderFrame.frameBuffer = VK_NULL_HANDLE;
         renderFrames[i] = renderFrame;
     }
-
+    VulkanGui::ImGuiSetupForVulkan(window, vulkanSetup, 0, graphicsQueue, imGuiRenderPass, graphicsPool);
 
     std::vector<VertexInput> vertexInputs = {
             VertexInput(glm::vec3(0, 0, 0), glm::vec4(1, 0, 0, 1)),
@@ -239,19 +275,36 @@ int main() {
             if (currentFrame.frameBuffer != VK_NULL_HANDLE) {
                 vkDestroyFramebuffer(vkDevice, currentFrame.frameBuffer, nullptr);
             }
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+            ImGui::ShowDemoWindow();
+            ImGui::Render();
+
             std::vector<VkImageView> framebufferAttachments = {swapchainImageViews[swapchainImageIndex]};
             currentFrame.frameBuffer = vk::createFramebuffer(vkDevice, vk::framebufferCreateInfo(0, defaultRenderPass, framebufferAttachments,
                                                                                                  presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 1));
             VkRenderPassBeginInfo defaultRenderPassBeginInfo = vk::renderPassBeginInfo(defaultRenderPass, currentFrame.frameBuffer,
                                                                                        vk::rect2D(presentationEngineInfo.extents, {0, 0}), clearValues);
+            VkRenderPassBeginInfo imGuiRenderPassBeginInfo = vk::renderPassBeginInfo(imGuiRenderPass, currentFrame.frameBuffer,
+                                                                                       vk::rect2D(presentationEngineInfo.extents, {0, 0}), clearValues);
             vk::CommandBufferUtils::beginCommandBuffer(vkDevice, currentFrame.commandBuffer, 0);
             {
                 vkCmdBeginRenderPass(currentFrame.commandBuffer, &defaultRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-                vkCmdBindPipeline(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultPipeline);
-                VkDeviceSize offsets = 0;
-                vkCmdBindVertexBuffers(currentFrame.commandBuffer, 0, 1, &vertexBuffer, &offsets);
-                vkCmdBindIndexBuffer(currentFrame.commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexed(currentFrame.commandBuffer, indexVector.size(), 1, 0, 0, 0);
+                {
+                    vkCmdBindPipeline(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultPipeline);
+                    VkDeviceSize offsets = 0;
+                    vkCmdBindVertexBuffers(currentFrame.commandBuffer, 0, 1, &vertexBuffer, &offsets);
+                    vkCmdBindIndexBuffer(currentFrame.commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdDrawIndexed(currentFrame.commandBuffer, indexVector.size(), 1, 0, 0, 0);
+                }
+                vkCmdEndRenderPass(currentFrame.commandBuffer);
+
+                vkCmdBeginRenderPass(currentFrame.commandBuffer, &imGuiRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+                {
+                    vkCmdBindPipeline(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultPipeline);
+                    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), currentFrame.commandBuffer);
+                }
                 vkCmdEndRenderPass(currentFrame.commandBuffer);
             }
             vk::CommandBufferUtils::submitCommandBuffer(graphicsQueue, currentFrame.commandBuffer, {currentFrame.imageReadySemaphore},
