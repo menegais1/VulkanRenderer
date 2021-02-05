@@ -18,7 +18,6 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
-#include "FileManagers/Stb/stb_image.h"
 
 int const WIDTH = 500;
 int const HEIGHT = 500;
@@ -195,7 +194,12 @@ int main() {
     std::vector<VertexInput> vertexInputs = {
             VertexInput(glm::vec3(0, 0, 0), glm::vec4(1, 0, 0, 1)),
             VertexInput(glm::vec3(0.5, 0.5, 0), glm::vec4(0, 1, 0, 1)),
-            VertexInput(glm::vec3(0.5, 0, 0), glm::vec4(0, 0, 1, 1))
+            VertexInput(glm::vec3(0.5, 0, 0), glm::vec4(0, 0, 1, 1)),
+            VertexInput(glm::vec3(0, 0.5, 0), glm::vec4(0, 0, 1, 1))
+    };
+
+    std::vector<uint32_t> indexVector = {
+            0, 1, 2, 0, 3, 1
     };
 
     std::vector<uint32_t> vertexAndIndicesQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily};
@@ -205,9 +209,18 @@ int main() {
     VkMemoryRequirements vertexBufferMemoryRequirements = vk::getBufferMemoryRequirements(vkDevice, vertexBuffer);
     AllocationBlock vertexBufferMemory = vma.vmalloc(vertexBufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     vkBindBufferMemory(vkDevice, vertexBuffer, vertexBufferMemory.vkDeviceMemory, vertexBufferMemory.vkOffset);
-    void *memoryMapping;
-    vkMapMemory(vkDevice, vertexBufferMemory.vkDeviceMemory, vertexBufferMemory.vkOffset, memorySize, 0, &memoryMapping);
-    memcpy(memoryMapping, vertexInputs.data(), memorySize);
+    void *vertexMemoryMapping;
+    vkMapMemory(vkDevice, vertexBufferMemory.vkDeviceMemory, vertexBufferMemory.vkOffset, memorySize, 0, &vertexMemoryMapping);
+    memcpy(vertexMemoryMapping, vertexInputs.data(), memorySize);
+
+    VkBuffer indexBuffer = vk::createBuffer(vkDevice, vk::bufferCreateInfo(memorySize, vertexAndIndicesQueues,
+                                                                           VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0));
+    VkMemoryRequirements indexBufferMemoryRequirements = vk::getBufferMemoryRequirements(vkDevice, indexBuffer);
+    AllocationBlock indexBufferMemory = vma.vmalloc(indexBufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    vkBindBufferMemory(vkDevice, indexBuffer, indexBufferMemory.vkDeviceMemory, indexBufferMemory.vkOffset);
+    void *indexMemoryMapping;
+    vkMapMemory(vkDevice, indexBufferMemory.vkDeviceMemory, indexBufferMemory.vkOffset, memorySize, 0, &indexMemoryMapping);
+    memcpy(indexMemoryMapping, indexVector.data(), memorySize);
 //    VkMappedMemoryRange vkMappedMemoryRange = vk::mappedMemoryRange(vertexBufferMemory.vkDeviceMemory,vertexBufferMemory.vkOffset, VK_WHOLE_SIZE);
 //    vkFlushMappedMemoryRanges(vkDevice, 1, &vkMappedMemoryRange);
 
@@ -236,8 +249,9 @@ int main() {
                 vkCmdBeginRenderPass(currentFrame.commandBuffer, &defaultRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
                 vkCmdBindPipeline(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultPipeline);
                 VkDeviceSize offsets = 0;
-                vkCmdBindVertexBuffers(currentFrame.commandBuffer,0,1, &vertexBuffer,&offsets);
-                vkCmdDraw(currentFrame.commandBuffer, 3, 1, 0, 0);
+                vkCmdBindVertexBuffers(currentFrame.commandBuffer, 0, 1, &vertexBuffer, &offsets);
+                vkCmdBindIndexBuffer(currentFrame.commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdDrawIndexed(currentFrame.commandBuffer, indexVector.size(), 1, 0, 0, 0);
                 vkCmdEndRenderPass(currentFrame.commandBuffer);
             }
             vk::CommandBufferUtils::submitCommandBuffer(graphicsQueue, currentFrame.commandBuffer, {currentFrame.imageReadySemaphore},
