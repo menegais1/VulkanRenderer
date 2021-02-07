@@ -17,6 +17,8 @@
 #include "VulkanGui.h"
 #include "MemoryManagement/VMA.h"
 #include "Refactoring/Buffer.h"
+#include "Refactoring/Queue.h"
+#include "Refactoring/HostDeviceTransfer.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
@@ -104,14 +106,13 @@ int main() {
     VkSurfaceKHR vkSurfaceKHR = vulkanSetup.vkSurfaceKHR;
     PhysicalDeviceInfo physicalDeviceInfo = vulkanSetup.physicalDeviceInfo;
     PresentationEngineInfo presentationEngineInfo = vulkanSetup.presentationEngineInfo;
-    VkQueue graphicsQueue, presentationQueue, transferQueue, computeQueue;
     VkPipeline defaultPipeline;
 
     VMA::getInstance().initialize(vkDevice, physicalDeviceInfo, new PassThroughAllocator());
-    vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.graphicsFamily, 0, &graphicsQueue);
-    vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.computeFamily, 1, &computeQueue);
-    vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.presentationFamily, 0, &presentationQueue);
-    vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.transferFamily, 0, &transferQueue);
+    vk::Queue graphicsQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.graphicsFamily, 0);
+    vk::Queue computeQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.computeFamily, 1);
+    vk::Queue presentationQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.presentationFamily, 0);
+    vk::Queue transferQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.transferFamily, 0);
 
 
     VkRenderPass defaultRenderPass = createDefaultRenderPass(vkDevice, presentationEngineInfo);
@@ -202,7 +203,9 @@ int main() {
         renderFrame.frameBuffer = VK_NULL_HANDLE;
         renderFrames[i] = renderFrame;
     }
-    VulkanGui::ImGuiSetupForVulkan(window, vulkanSetup, 0, graphicsQueue, imGuiRenderPass, graphicsPool);
+    VulkanGui::ImGuiSetupForVulkan(window, vulkanSetup, 0, graphicsQueue.queue, imGuiRenderPass, graphicsPool);
+
+    vk::HostDeviceTransfer hostDeviceTransfer = vk::HostDeviceTransfer(vkDevice, transferQueue);
 
     std::vector<VertexInput> vertexInputs = {
             VertexInput(glm::vec3(0, 0, 0), glm::vec4(1, 0, 0, 1)),
@@ -215,18 +218,27 @@ int main() {
             0, 1, 2, 0, 3, 1
     };
 
-    std::vector<uint32_t> vertexAndIndicesQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily};
-    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), vertexAndIndicesQueues, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0,
-                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    void *vertexMemoryMapping;
-    vkMapMemory(vkDevice, vertexBuffer.memory.vkDeviceMemory, vertexBuffer.memory.vkOffset, vertexBuffer.size, 0, &vertexMemoryMapping);
-    memcpy(vertexMemoryMapping, vertexInputs.data(), vertexBuffer.size);
-
-    vk::Buffer indexBuffer = vk::Buffer(vkDevice, indexVector.size() * sizeof(uint32_t), vertexAndIndicesQueues, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                                        VK_SHARING_MODE_EXCLUSIVE, 0, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    void *indexMemoryMapping;
-    vkMapMemory(vkDevice, indexBuffer.memory.vkDeviceMemory, indexBuffer.memory.vkOffset, indexBuffer.size, 0, &indexMemoryMapping);
-    memcpy(indexMemoryMapping, indexVector.data(), indexBuffer.size);
+    std::vector<uint32_t> vertexAndIndicesQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily, physicalDeviceInfo.queueFamilies.transferFamily};
+//    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), vertexAndIndicesQueues, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0,
+//                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+//    void *vertexMemoryMapping;
+//    vkMapMemory(vkDevice, vertexBuffer.memory.vkDeviceMemory, vertexBuffer.memory.vkOffset, vertexBuffer.size, 0, &vertexMemoryMapping);
+//    memcpy(vertexMemoryMapping, vertexInputs.data(), vertexBuffer.size);
+    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), vertexAndIndicesQueues,
+                                         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_CONCURRENT, 0,
+                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    hostDeviceTransfer.transferBuffer(vertexBuffer.size, vertexInputs.data(), vertexBuffer, [](VkCommandBuffer commandBuffer) {
+        std::cout << "Callback vertex Executed" << std::endl;
+    });
+    vk::Buffer indexBuffer = vk::Buffer(vkDevice, indexVector.size() * sizeof(uint32_t), vertexAndIndicesQueues,
+                                        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                                        VK_SHARING_MODE_CONCURRENT, 0, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    hostDeviceTransfer.transferBuffer(indexBuffer.size, indexVector.data(), indexBuffer, [](VkCommandBuffer commandBuffer) {
+        std::cout << "Callback index Executed" << std::endl;
+    });
+    //    void *indexMemoryMapping;
+//    vkMapMemory(vkDevice, indexBuffer.memory.vkDeviceMemory, indexBuffer.memory.vkOffset, indexBuffer.size, 0, &indexMemoryMapping);
+//    memcpy(indexMemoryMapping, indexVector.data(), indexBuffer.size);
 //    VkMappedMemoryRange vkMappedMemoryRange = vk::mappedMemoryRange(vertexBufferMemory.vkDeviceMemory,vertexBufferMemory.vkOffset, VK_WHOLE_SIZE);
 //    vkFlushMappedMemoryRanges(vkDevice, 1, &vkMappedMemoryRange);
 
@@ -277,14 +289,14 @@ int main() {
                 }
                 vkCmdEndRenderPass(currentFrame.commandBuffer);
             }
-            vk::CommandBufferUtils::submitCommandBuffer(graphicsQueue, currentFrame.commandBuffer, {currentFrame.imageReadySemaphore},
+            vk::CommandBufferUtils::submitCommandBuffer(graphicsQueue.queue, currentFrame.commandBuffer, {currentFrame.imageReadySemaphore},
                                                         {currentFrame.presentationReadySemaphore}, &waitDstStageFlagBits,
                                                         currentFrame.bufferFinishedFence);
 
             std::vector<VkSemaphore> waitSemaphores = {currentFrame.presentationReadySemaphore};
             std::vector<VkSwapchainKHR> swapchains = {vkSwapchainKHR};
             VkPresentInfoKHR vkPresentInfoKhr = vk::presentInfoKHR(waitSemaphores, swapchains, &swapchainImageIndex, nullptr);
-            vk::VK_ASSERT(vkQueuePresentKHR(presentationQueue, &vkPresentInfoKhr));
+            vk::VK_ASSERT(vkQueuePresentKHR(presentationQueue.queue, &vkPresentInfoKhr));
 
 
         }

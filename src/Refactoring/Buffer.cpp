@@ -3,7 +3,7 @@
 #include "VulkanCreateFunctions.h"
 #include "CreateInfoHelpers.h"
 
-vk::Buffer::Buffer(VkDevice vkDevice, VkDeviceSize memorySize, std::vector<uint32_t> queues, VkBufferUsageFlags usage,
+vk::Buffer::Buffer(VkDevice vkDevice, VkDeviceSize memorySize, const std::vector<uint32_t>& queues, VkBufferUsageFlags usage,
                    VkSharingMode sharingMode, VkBufferCreateFlags flags, VkMemoryPropertyFlags memoryPropertyFlags) {
     this->buffer = vk::createBuffer(vkDevice, vk::bufferCreateInfo(memorySize, queues,
                                                              usage, sharingMode, flags));
@@ -11,4 +11,10 @@ vk::Buffer::Buffer(VkDevice vkDevice, VkDeviceSize memorySize, std::vector<uint3
     VkMemoryRequirements memoryRequirements = vk::getBufferMemoryRequirements(vkDevice, buffer);
     this->memory = VMA::getInstance().vmalloc(memoryRequirements, memoryPropertyFlags);
     vkBindBufferMemory(vkDevice, buffer, this->memory.vkDeviceMemory, this->memory.vkOffset);
+}
+
+vk::Buffer::Buffer() {
+    buffer = VK_NULL_HANDLE;
+    size = 0;
+    memory = AllocationBlock();
 }

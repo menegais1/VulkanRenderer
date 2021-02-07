@@ -16,7 +16,9 @@ namespace vk {
     class Buffer {
     public:
 
-        Buffer(VkDevice vkDevice, VkDeviceSize memorySize, std::vector<uint32_t> queues,
+        Buffer();
+
+        Buffer(VkDevice vkDevice, VkDeviceSize memorySize, const std::vector<uint32_t>& queues,
                VkBufferUsageFlags usage, VkSharingMode sharingMode, VkBufferCreateFlags flags,
                VkMemoryPropertyFlags memoryPropertyFlags);
 

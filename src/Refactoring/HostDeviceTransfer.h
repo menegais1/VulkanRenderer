@@ -9,16 +9,33 @@
 
 #include <GLFW/glfw3.h>
 #include "PhysicalDeviceInfo.h"
+#include "Buffer.h"
+#include "Queue.h"
+#include <functional>
 
-class HostDeviceTransfer {
-public:
-    HostDeviceTransfer(VkDevice vkDevice, PhysicalDeviceInfo physicalDeviceInfo);
+namespace vk {
+    class HostDeviceTransfer {
+    public:
+        VkFence transferCompleted;
 
-private:
-    VkCommandPool transferBuffersPool;
-    VkCommandBufferAllocateInfo transferCommandBufferAllocateInfo;
-    VkCommandBuffer transferCommandBuffer;
-};
+        HostDeviceTransfer(VkDevice vkDevice, vk::Queue transferQueue);
 
+        void transferBuffer(uint32_t dataSize, void *data, vk::Buffer dstBuffer, std::function<void(VkCommandBuffer commandBuffer)> callback);
+
+    private:
+        VkDevice vkDevice;
+        PhysicalDeviceInfo physicalDeviceInfo;
+        VkCommandPool transferBuffersPool;
+        VkCommandBufferAllocateInfo transferCommandBufferAllocateInfo;
+        VkCommandBuffer transferCommandBuffer;
+        VkSemaphore transferExecuting;
+        vk::Queue transferQueue;
+        vk::Buffer stagingBuffer;
+        void *mappedMemory;
+        bool bufferAllocated;
+
+        void allocateStagingBuffer(VkDeviceSize size);
+    };
+}
 
 #endif //VULKANBASE_HOSTDEVICETRANSFER_H

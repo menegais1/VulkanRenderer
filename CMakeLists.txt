@@ -45,6 +45,6 @@ add_executable(VulkanBase
         src/VulkanGui.h
         src/Refactoring/HostDeviceTransfer.cpp
         src/Refactoring/HostDeviceTransfer.h
-        src/MemoryManagement/VMA.h src/MemoryManagement/VMA.cpp)
+        src/MemoryManagement/VMA.h src/MemoryManagement/VMA.cpp src/Refactoring/Queue.cpp src/Refactoring/Queue.h)
 
 target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)
