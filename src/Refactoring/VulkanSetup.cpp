@@ -14,6 +14,7 @@
 #include "VulkanSetup.h"
 #include "../VulkanDebug.h"
 #include "CreateInfoHelpers.h"
+#include "VulkanCreateFunctions.h"
 
 
 VkPresentModeKHR

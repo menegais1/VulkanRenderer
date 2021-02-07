@@ -4,6 +4,7 @@
 
 #include "CommandBufferUtils.h"
 #include "CreateInfoHelpers.h"
+#include "VulkanCreateFunctions.h"
 
 void vk::CommandBufferUtils::beginCommandBuffer(VkDevice vkDevice, VkCommandBuffer commandBuffer,
                                                 VkCommandBufferUsageFlags flags, std::vector<VkFence> fences,

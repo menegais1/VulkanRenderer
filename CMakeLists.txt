@@ -39,9 +39,12 @@ add_executable(VulkanBase
         src/Refactoring/RenderFrame.h
         src/Refactoring/VulkanCreateFunctions.h
         src/Refactoring/Buffer.h
+        src/Refactoring/Buffer.cpp
         src/AutoShaders/AutoShaders.h
         ${Dear}
         src/VulkanGui.h
-        )
+        src/Refactoring/HostDeviceTransfer.cpp
+        src/Refactoring/HostDeviceTransfer.h
+        src/MemoryManagement/VMA.h src/MemoryManagement/VMA.cpp)
 
 target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)

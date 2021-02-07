@@ -13,6 +13,29 @@
 class VulkanGui
 {
 public:
+
+    static VkRenderPass ImGuiCreateRenderPass(VkDevice vkDevice, PresentationEngineInfo presentationEngineInfo){
+        VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
+                                                                            VK_SAMPLE_COUNT_1_BIT,
+                                                                            VK_ATTACHMENT_LOAD_OP_LOAD,
+                                                                            VK_ATTACHMENT_STORE_OP_STORE,
+                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                                            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
+                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
+        VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                                   attachmentReferences, {}, {}, {}, {});
+        VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
+                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+                                                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
+        std::vector<VkAttachmentDescription> attachments = {colorAttachment};
+        std::vector<VkSubpassDependency> dependencies = {externalDependency};
+        std::vector<VkSubpassDescription> subpasses = {colorSubpass};
+
+        return vk::createRenderPass(vkDevice, vk::renderPassCreateInfo(attachments, dependencies, subpasses));
+    }
     static void ImGuiSetupForVulkan(GLFWwindow* window, const VulkanSetup& setup, uint32_t queueIndex,
                                     const VkQueue& queue, const VkRenderPass& renderPass,
                                     const VkCommandPool & commandPool)
@@ -50,7 +73,7 @@ public:
         VkCommandBufferAllocateInfo v = vk::commandBufferAllocateInfo(commandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
         VkCommandBuffer commandBuffer {};
         vkAllocateCommandBuffers(setup.vkDevice, &v, &commandBuffer);
-        vk::CommandBufferUtils::beginCommandBuffer(setup.vkDevice, commandBuffer, 0);
+        vk::CommandBufferUtils::beginCommandBuffer(setup.vkDevice, commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
         {
             ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
         }

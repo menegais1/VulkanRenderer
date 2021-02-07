@@ -8,12 +8,22 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include <GLFW/glfw3.h>
+#include <vector>
 #include "../MemoryManagement/AllocationBlock.h"
 
-struct Buffer {
-    VkBuffer buffer;
-    VkDeviceSize size;
-    AllocationBlock memory;
-};
+namespace vk {
+
+    class Buffer {
+    public:
+
+        Buffer(VkDevice vkDevice, VkDeviceSize memorySize, std::vector<uint32_t> queues,
+               VkBufferUsageFlags usage, VkSharingMode sharingMode, VkBufferCreateFlags flags,
+               VkMemoryPropertyFlags memoryPropertyFlags);
+
+        VkBuffer buffer;
+        VkDeviceSize size;
+        AllocationBlock memory;
+    };
+}
 
 #endif //VULKANBASE_BUFFER_H

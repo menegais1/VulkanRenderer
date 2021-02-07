@@ -8,7 +8,6 @@
 #include <iostream>
 #include "Refactoring/VulkanSetup.h"
 #include "MemoryManagement/PassThroughAllocator.h"
-#include "MemoryManagement/VideoMemoryAllocator.h"
 #include "Refactoring/CreateInfoHelpers.h"
 #include "FileManagers/FileLoader.h"
 #include "Refactoring/RenderFrame.h"
@@ -16,6 +15,8 @@
 #include "Refactoring/VulkanCreateFunctions.h"
 #include "AutoShaders/AutoShaders.h"
 #include "VulkanGui.h"
+#include "MemoryManagement/VMA.h"
+#include "Refactoring/Buffer.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
@@ -67,6 +68,31 @@ GLFWwindow *setupGLFW() {
     return window;
 }
 
+VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo presentationEngineInfo) {
+    VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
+                                                                        VK_SAMPLE_COUNT_1_BIT,
+                                                                        VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                                        VK_ATTACHMENT_STORE_OP_STORE,
+                                                                        VK_IMAGE_LAYOUT_UNDEFINED,
+                                                                        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
+                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
+    VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                                               attachmentReferences, {}, {}, {}, {});
+    VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
+                                                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
+                                                                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
+    std::vector<VkAttachmentDescription> attachments = {colorAttachment};
+    std::vector<VkSubpassDependency> dependencies = {externalDependency};
+    std::vector<VkSubpassDescription> subpasses = {colorSubpass};
+    VkRenderPassCreateInfo defaultRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies,
+                                                                                  subpasses);
+    return vk::createRenderPass(vkDevice, vk::renderPassCreateInfo(attachments, dependencies, subpasses));
+}
+
+
 int main() {
 
     AutoShaders::compile();
@@ -78,118 +104,69 @@ int main() {
     VkSurfaceKHR vkSurfaceKHR = vulkanSetup.vkSurfaceKHR;
     PhysicalDeviceInfo physicalDeviceInfo = vulkanSetup.physicalDeviceInfo;
     PresentationEngineInfo presentationEngineInfo = vulkanSetup.presentationEngineInfo;
-    VideoMemoryAllocator vma = VideoMemoryAllocator(vkDevice, physicalDeviceInfo, new PassThroughAllocator());
-    VkRenderPass defaultRenderPass, imGuiRenderPass;
     VkQueue graphicsQueue, presentationQueue, transferQueue, computeQueue;
+    VkPipeline defaultPipeline;
 
-
+    VMA::getInstance().initialize(vkDevice, physicalDeviceInfo, new PassThroughAllocator());
     vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.graphicsFamily, 0, &graphicsQueue);
     vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.computeFamily, 1, &computeQueue);
     vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.presentationFamily, 0, &presentationQueue);
     vkGetDeviceQueue(vkDevice, physicalDeviceInfo.queueFamilies.transferFamily, 0, &transferQueue);
 
-    /* Default Render pass */
+
+    VkRenderPass defaultRenderPass = createDefaultRenderPass(vkDevice, presentationEngineInfo);
+    VkRenderPass imGuiRenderPass = VulkanGui::ImGuiCreateRenderPass(vkDevice, presentationEngineInfo);
+    // Pipeline Creation
     {
-        VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
-                                                                            VK_SAMPLE_COUNT_1_BIT,
-                                                                            VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                                            VK_ATTACHMENT_STORE_OP_STORE,
-                                                                            VK_IMAGE_LAYOUT_UNDEFINED,
-                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
-                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
-        VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                   attachmentReferences, {}, {}, {}, {});
-        VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
-                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-                                                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
-        std::vector<VkAttachmentDescription> attachments = {colorAttachment};
-        std::vector<VkSubpassDependency> dependencies = {externalDependency};
-        std::vector<VkSubpassDescription> subpasses = {colorSubpass};
-        VkRenderPassCreateInfo defaultRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies,
-                                                                                      subpasses);
-        vkCreateRenderPass(vkDevice, &defaultRenderPassCreateInfo, nullptr, &defaultRenderPass);
+        VkVertexInputBindingDescription vertexInputBindingDescription = vk::vertexInputBindingDescription(0, sizeof(VertexInput), VK_VERTEX_INPUT_RATE_VERTEX);
+        VkVertexInputAttributeDescription attributeDescriptionPosition = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 0, offsetof(VertexInput, position));
+        VkVertexInputAttributeDescription attributeDescriptionColor = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32A32_SFLOAT, 1, offsetof(VertexInput, color));
+        std::vector<VkVertexInputBindingDescription> bindingsDescriptions = {vertexInputBindingDescription};
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {attributeDescriptionPosition, attributeDescriptionColor};
+        VkPipelineVertexInputStateCreateInfo vertexInputState = vk::pipelineVertexInputStateCreateInfo(bindingsDescriptions, attributeDescriptions);
 
-    }
+        VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vk::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
+        VkPipelineRasterizationStateCreateInfo rasterizationState = vk::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT,
+                                                                                                             VK_FRONT_FACE_COUNTER_CLOCKWISE, 1.0);
+        VkPipelineDepthStencilStateCreateInfo depthStencilState = vk::pipelineDepthStencilStateCreateInfo(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER);
+        VkPipelineTessellationStateCreateInfo tesselationState = vk::pipelineTessellationStateCreateInfo(0);
 
-    /* ImGUI Render Pass */
-    {
-        VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
-                                                                            VK_SAMPLE_COUNT_1_BIT,
-                                                                            VK_ATTACHMENT_LOAD_OP_LOAD,
-                                                                            VK_ATTACHMENT_STORE_OP_STORE,
-                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                                            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
-                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
-        VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                   attachmentReferences, {}, {}, {}, {});
-        VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
-                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                                                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-                                                                       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
-        std::vector<VkAttachmentDescription> attachments = {colorAttachment};
-        std::vector<VkSubpassDependency> dependencies = {externalDependency};
-        std::vector<VkSubpassDescription> subpasses = {colorSubpass};
-        VkRenderPassCreateInfo imGuiRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies,
-                                                                                      subpasses);
-        vkCreateRenderPass(vkDevice, &imGuiRenderPassCreateInfo, nullptr, &imGuiRenderPass);
+        VkPipelineColorBlendAttachmentState colorBlendAttachmentState = vk::pipelineColorBlendAttachmentState();
+        colorBlendAttachmentState.blendEnable = VK_FALSE;
+        colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_A_BIT | VK_COLOR_COMPONENT_R_BIT |
+                                                   VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
 
-    }
-
-    VkVertexInputBindingDescription vertexInputBindingDescription = vk::vertexInputBindingDescription(0, sizeof(VertexInput), VK_VERTEX_INPUT_RATE_VERTEX);
-    VkVertexInputAttributeDescription attributeDescriptionPosition = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 0, offsetof(VertexInput, position));
-    VkVertexInputAttributeDescription attributeDescriptionColor = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32A32_SFLOAT, 1, offsetof(VertexInput, color));
-    std::vector<VkVertexInputBindingDescription> bindingsDescriptions = {vertexInputBindingDescription};
-    std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {attributeDescriptionPosition, attributeDescriptionColor};
-    VkPipelineVertexInputStateCreateInfo vertexInputState = vk::pipelineVertexInputStateCreateInfo(bindingsDescriptions, attributeDescriptions);
-
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vk::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
-    VkPipelineRasterizationStateCreateInfo rasterizationState = vk::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT,
-                                                                                                         VK_FRONT_FACE_COUNTER_CLOCKWISE, 1.0);
-    VkPipelineDepthStencilStateCreateInfo depthStencilState = vk::pipelineDepthStencilStateCreateInfo(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER);
-    VkPipelineTessellationStateCreateInfo tesselationState = vk::pipelineTessellationStateCreateInfo(0);
-
-    VkPipelineColorBlendAttachmentState colorBlendAttachmentState = vk::pipelineColorBlendAttachmentState();
-    colorBlendAttachmentState.blendEnable = VK_FALSE;
-    colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_A_BIT | VK_COLOR_COMPONENT_R_BIT |
-                                               VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
-
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::pipelineLayoutCreateInfo({}, {});
-    VkPipelineLayout pipelineLayout;
-    vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
-    float blendConstants[4] = {1, 1, 1, 1};
-    std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
-    VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-    auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/vulkanBase.vert.spv"));
+        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::pipelineLayoutCreateInfo({}, {});
+        VkPipelineLayout pipelineLayout;
+        vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
+        float blendConstants[4] = {1, 1, 1, 1};
+        std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
+        VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
+        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/vulkanBase.vert.spv"));
         auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/vulkanBase.frag.spv"));
-    VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
-    VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
+        VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
+        VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
-    VkShaderModule vertexShader, fragmentShader;
-    vkCreateShaderModule(vkDevice, &vertexShaderCreateInfo, nullptr, &vertexShader);
-    vkCreateShaderModule(vkDevice, &fragmentShaderCreateInfo, nullptr, &fragmentShader);
+        VkShaderModule vertexShader, fragmentShader;
+        vkCreateShaderModule(vkDevice, &vertexShaderCreateInfo, nullptr, &vertexShader);
+        vkCreateShaderModule(vkDevice, &fragmentShaderCreateInfo, nullptr, &fragmentShader);
 
-    VkPipelineShaderStageCreateInfo vertexShaderStage = vk::pipelineShaderStageCreateInfo(vertexShader, "main", VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragmentShaderStage = vk::pipelineShaderStageCreateInfo(fragmentShader, "main", VK_SHADER_STAGE_FRAGMENT_BIT);
+        VkPipelineShaderStageCreateInfo vertexShaderStage = vk::pipelineShaderStageCreateInfo(vertexShader, "main", VK_SHADER_STAGE_VERTEX_BIT);
+        VkPipelineShaderStageCreateInfo fragmentShaderStage = vk::pipelineShaderStageCreateInfo(fragmentShader, "main", VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    std::vector<VkViewport> viewports = {vk::viewport(0, 0, presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 0, 1)};
-    std::vector<VkRect2D> scissors = {vk::rect2D(vk::extent2D(presentationEngineInfo.extents.width, presentationEngineInfo.extents.height), vk::offset2D(0, 0))};
-    VkPipelineViewportStateCreateInfo viewportState = vk::pipelineViewportStateCreateInfo(viewports, scissors);
+        std::vector<VkViewport> viewports = {vk::viewport(0, 0, presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 0, 1)};
+        std::vector<VkRect2D> scissors = {vk::rect2D(vk::extent2D(presentationEngineInfo.extents.width, presentationEngineInfo.extents.height), vk::offset2D(0, 0))};
+        VkPipelineViewportStateCreateInfo viewportState = vk::pipelineViewportStateCreateInfo(viewports, scissors);
 
-    VkPipelineMultisampleStateCreateInfo multisampleState = vk::pipelineMultisampleStateCreateInfo();
-    multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampleState.sampleShadingEnable = VK_FALSE;
-    std::vector<VkPipelineShaderStageCreateInfo> stages = {vertexShaderStage, fragmentShaderStage};
-    VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::graphicsPipelineCreateInfo(stages, &vertexInputState, &inputAssemblyState, &tesselationState, &viewportState,
-                                                                                             &rasterizationState, &multisampleState, &depthStencilState,
-                                                                                             &colorBlendState, nullptr, pipelineLayout, defaultRenderPass, 0);
-    VkPipeline defaultPipeline;
-    vkCreateGraphicsPipelines(vkDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &defaultPipeline);
-
+        VkPipelineMultisampleStateCreateInfo multisampleState = vk::pipelineMultisampleStateCreateInfo();
+        multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampleState.sampleShadingEnable = VK_FALSE;
+        std::vector<VkPipelineShaderStageCreateInfo> stages = {vertexShaderStage, fragmentShaderStage};
+        VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo = vk::graphicsPipelineCreateInfo(stages, &vertexInputState, &inputAssemblyState, &tesselationState, &viewportState,
+                                                                                                 &rasterizationState, &multisampleState, &depthStencilState,
+                                                                                                 &colorBlendState, nullptr, pipelineLayout, defaultRenderPass, 0);
+        defaultPipeline = vk::createGraphicsPipelines(vkDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo)[0];
+    }
     std::vector<VkImage> swapchainImages;
     uint32_t swapchainImagesCount = 0;
     vkGetSwapchainImagesKHR(vkDevice, vkSwapchainKHR, &swapchainImagesCount, nullptr);
@@ -239,24 +216,17 @@ int main() {
     };
 
     std::vector<uint32_t> vertexAndIndicesQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily};
-    VkDeviceSize memorySize = sizeof(VertexInput) * vertexInputs.size();
-    VkBuffer vertexBuffer = vk::createBuffer(vkDevice, vk::bufferCreateInfo(memorySize, vertexAndIndicesQueues,
-                                                                            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0));
-    VkMemoryRequirements vertexBufferMemoryRequirements = vk::getBufferMemoryRequirements(vkDevice, vertexBuffer);
-    AllocationBlock vertexBufferMemory = vma.vmalloc(vertexBufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    vkBindBufferMemory(vkDevice, vertexBuffer, vertexBufferMemory.vkDeviceMemory, vertexBufferMemory.vkOffset);
+    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), vertexAndIndicesQueues, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0,
+                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     void *vertexMemoryMapping;
-    vkMapMemory(vkDevice, vertexBufferMemory.vkDeviceMemory, vertexBufferMemory.vkOffset, memorySize, 0, &vertexMemoryMapping);
-    memcpy(vertexMemoryMapping, vertexInputs.data(), memorySize);
+    vkMapMemory(vkDevice, vertexBuffer.memory.vkDeviceMemory, vertexBuffer.memory.vkOffset, vertexBuffer.size, 0, &vertexMemoryMapping);
+    memcpy(vertexMemoryMapping, vertexInputs.data(), vertexBuffer.size);
 
-    VkBuffer indexBuffer = vk::createBuffer(vkDevice, vk::bufferCreateInfo(memorySize, vertexAndIndicesQueues,
-                                                                           VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0));
-    VkMemoryRequirements indexBufferMemoryRequirements = vk::getBufferMemoryRequirements(vkDevice, indexBuffer);
-    AllocationBlock indexBufferMemory = vma.vmalloc(indexBufferMemoryRequirements, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    vkBindBufferMemory(vkDevice, indexBuffer, indexBufferMemory.vkDeviceMemory, indexBufferMemory.vkOffset);
+    vk::Buffer indexBuffer = vk::Buffer(vkDevice, indexVector.size() * sizeof(uint32_t), vertexAndIndicesQueues, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                        VK_SHARING_MODE_EXCLUSIVE, 0, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     void *indexMemoryMapping;
-    vkMapMemory(vkDevice, indexBufferMemory.vkDeviceMemory, indexBufferMemory.vkOffset, memorySize, 0, &indexMemoryMapping);
-    memcpy(indexMemoryMapping, indexVector.data(), memorySize);
+    vkMapMemory(vkDevice, indexBuffer.memory.vkDeviceMemory, indexBuffer.memory.vkOffset, indexBuffer.size, 0, &indexMemoryMapping);
+    memcpy(indexMemoryMapping, indexVector.data(), indexBuffer.size);
 //    VkMappedMemoryRange vkMappedMemoryRange = vk::mappedMemoryRange(vertexBufferMemory.vkDeviceMemory,vertexBufferMemory.vkOffset, VK_WHOLE_SIZE);
 //    vkFlushMappedMemoryRanges(vkDevice, 1, &vkMappedMemoryRange);
 
@@ -287,15 +257,15 @@ int main() {
             VkRenderPassBeginInfo defaultRenderPassBeginInfo = vk::renderPassBeginInfo(defaultRenderPass, currentFrame.frameBuffer,
                                                                                        vk::rect2D(presentationEngineInfo.extents, {0, 0}), clearValues);
             VkRenderPassBeginInfo imGuiRenderPassBeginInfo = vk::renderPassBeginInfo(imGuiRenderPass, currentFrame.frameBuffer,
-                                                                                       vk::rect2D(presentationEngineInfo.extents, {0, 0}), clearValues);
+                                                                                     vk::rect2D(presentationEngineInfo.extents, {0, 0}), clearValues);
             vk::CommandBufferUtils::beginCommandBuffer(vkDevice, currentFrame.commandBuffer, 0);
             {
                 vkCmdBeginRenderPass(currentFrame.commandBuffer, &defaultRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
                 {
                     vkCmdBindPipeline(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultPipeline);
                     VkDeviceSize offsets = 0;
-                    vkCmdBindVertexBuffers(currentFrame.commandBuffer, 0, 1, &vertexBuffer, &offsets);
-                    vkCmdBindIndexBuffer(currentFrame.commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdBindVertexBuffers(currentFrame.commandBuffer, 0, 1, &vertexBuffer.buffer, &offsets);
+                    vkCmdBindIndexBuffer(currentFrame.commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
                     vkCmdDrawIndexed(currentFrame.commandBuffer, indexVector.size(), 1, 0, 0, 0);
                 }
                 vkCmdEndRenderPass(currentFrame.commandBuffer);
