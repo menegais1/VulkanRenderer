@@ -211,7 +211,7 @@ namespace vk {
         return vkOffset2D;
     }
 
-    inline VkOffset3D offset3D(int32_t x, int32_t y,int32_t z) {
+    inline VkOffset3D offset3D(int32_t x, int32_t y, int32_t z) {
         VkOffset3D vkOffset3D{};
         vkOffset3D.x = x;
         vkOffset3D.y = y;
@@ -750,6 +750,14 @@ namespace vk {
         VkSamplerCreateInfo vkSamplerCreateInfo{};
         vkSamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         return vkSamplerCreateInfo;
+    }
+
+    inline VkDescriptorImageInfo descriptorImageInfo(VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout) {
+        VkDescriptorImageInfo vkDescriptorImageInfo;
+        vkDescriptorImageInfo.sampler = sampler;
+        vkDescriptorImageInfo.imageView = imageView;
+        vkDescriptorImageInfo.imageLayout = imageLayout;
+        return vkDescriptorImageInfo;
     }
 }
 

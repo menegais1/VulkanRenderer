@@ -24,6 +24,7 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
+#include <glm/vec2.hpp>
 #include "../Dependencies/stb/stb_image.h"
 #include "Refactoring/CommandBuffer.h"
 
@@ -44,8 +45,9 @@ void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
 struct VertexInput {
     glm::vec3 position;
     glm::vec4 color;
+    glm::vec2 uv;
 
-    VertexInput(const glm::vec3 &position, const glm::vec4 &color) : position(position), color(color) {}
+    VertexInput(const glm::vec3 &position, const glm::vec4 &color, const glm::vec2 &uv) : position(position), color(color), uv(uv) {}
 };
 
 std::vector<char> loadShader(const std::string filename) {
@@ -119,6 +121,15 @@ int main() {
     vk::Queue transferQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.transferFamily, 0);
 
 
+    // CREATE DESCRIPTOR SETS LAYOUT
+    VkDescriptorSetLayoutBinding textureDescriptorSetBinding = vk::descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
+    std::vector<VkDescriptorSetLayoutBinding> textureDescriptorBindings = {textureDescriptorSetBinding};
+    VkDescriptorSetLayout textureDescriptorSetLayout = vk::createDescriptorSetLayout(vkDevice, vk::descriptorSetLayoutCreateInfo(textureDescriptorBindings));
+    std::vector<VkDescriptorSetLayout> textureDescriptorSetLayouts = {textureDescriptorSetLayout};
+    // END
+
+    VkPipelineLayout pipelineLayout;
+
     VkRenderPass defaultRenderPass = createDefaultRenderPass(vkDevice, presentationEngineInfo);
     VkRenderPass imGuiRenderPass = VulkanGui::ImGuiCreateRenderPass(vkDevice, presentationEngineInfo);
     // Pipeline Creation
@@ -126,8 +137,9 @@ int main() {
         VkVertexInputBindingDescription vertexInputBindingDescription = vk::vertexInputBindingDescription(0, sizeof(VertexInput), VK_VERTEX_INPUT_RATE_VERTEX);
         VkVertexInputAttributeDescription attributeDescriptionPosition = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 0, offsetof(VertexInput, position));
         VkVertexInputAttributeDescription attributeDescriptionColor = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32A32_SFLOAT, 1, offsetof(VertexInput, color));
+        VkVertexInputAttributeDescription attributeDescriptionUv = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32_SFLOAT, 2, offsetof(VertexInput, uv));
         std::vector<VkVertexInputBindingDescription> bindingsDescriptions = {vertexInputBindingDescription};
-        std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {attributeDescriptionPosition, attributeDescriptionColor};
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {attributeDescriptionPosition, attributeDescriptionColor, attributeDescriptionUv};
         VkPipelineVertexInputStateCreateInfo vertexInputState = vk::pipelineVertexInputStateCreateInfo(bindingsDescriptions, attributeDescriptions);
 
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vk::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
@@ -141,8 +153,8 @@ int main() {
         colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_A_BIT | VK_COLOR_COMPONENT_R_BIT |
                                                    VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
 
-        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::pipelineLayoutCreateInfo({}, {});
-        VkPipelineLayout pipelineLayout;
+
+        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::pipelineLayoutCreateInfo(textureDescriptorSetLayouts, {});
         vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
         float blendConstants[4] = {1, 1, 1, 1};
         std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
@@ -212,10 +224,10 @@ int main() {
     vk::HostDeviceTransfer hostDeviceTransfer = vk::HostDeviceTransfer(vkDevice, transferQueue);
 
     std::vector<VertexInput> vertexInputs = {
-            VertexInput(glm::vec3(0, 0, 0), glm::vec4(1, 0, 0, 1)),
-            VertexInput(glm::vec3(0.5, 0.5, 0), glm::vec4(0, 1, 0, 1)),
-            VertexInput(glm::vec3(0.5, 0, 0), glm::vec4(0, 0, 1, 1)),
-            VertexInput(glm::vec3(0, 0.5, 0), glm::vec4(0, 0, 1, 1))
+            VertexInput(glm::vec3(0, 0, 0), glm::vec4(1, 0, 0, 1), glm::vec2(0, 0)),
+            VertexInput(glm::vec3(0.5, 0.5, 0), glm::vec4(0, 1, 0, 1), glm::vec2(1, 1)),
+            VertexInput(glm::vec3(0.5, 0, 0), glm::vec4(0, 0, 1, 1), glm::vec2(1, 0)),
+            VertexInput(glm::vec3(0, 0.5, 0), glm::vec4(0, 0, 1, 1), glm::vec2(0, 1))
     };
 
     std::vector<uint32_t> indexVector = {
@@ -235,6 +247,9 @@ int main() {
 
     vk::CommandBuffer commandBuffer = vk::CommandBuffer(vkDevice, graphicsQueue, graphicsPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
+    VkImage testImage;
+    VkImageView testImageView;
+    VkSampler testSampler;
     {
         int width, height, channels = 0;
         unsigned char *result = stbi_load(FileLoader::getPath("Resources/cat.bmp").c_str(), &width, &height, &channels, 0);
@@ -246,20 +261,20 @@ int main() {
         }
         std::cout << "Loaded image" << std::endl;
         std::cout << "w:" << width << " h:" << height << " c:" << channels << std::endl;
-        VkImage testImage = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                                          vk::extent3D(width, height, 1), 1, 1, VK_SAMPLE_COUNT_1_BIT,
-                                                                          VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                                          VK_SHARING_MODE_CONCURRENT, graphicsAndTransferQueues, VK_IMAGE_LAYOUT_UNDEFINED));
+        testImage = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                                  vk::extent3D(width, height, 1), 1, 1, VK_SAMPLE_COUNT_1_BIT,
+                                                                  VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                  VK_SHARING_MODE_CONCURRENT, graphicsAndTransferQueues, VK_IMAGE_LAYOUT_UNDEFINED));
         VkMemoryRequirements requirements = vk::getImageMemoryRequirements(vkDevice, testImage);
         AllocationBlock memory = VMA::getInstance().vmalloc(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         vkBindImageMemory(vkDevice, testImage, memory.vkDeviceMemory, memory.vkOffset);
-        VkImageView testImageView = vk::createImageView(vkDevice,
-                                                        vk::imageViewCreateInfo(testImage, VK_IMAGE_VIEW_TYPE_2D,
-                                                                                VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                                                {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                                                 VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
-                                                                                vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                                                          0, 1, 0, 1)));
+        testImageView = vk::createImageView(vkDevice,
+                                            vk::imageViewCreateInfo(testImage, VK_IMAGE_VIEW_TYPE_2D,
+                                                                    VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                                    {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                                     VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
+                                                                    vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                              0, 1, 0, 1)));
         VkSamplerCreateInfo samplerCreateInfo = vk::samplerCreateInfo();
         samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
         samplerCreateInfo.compareEnable = VK_FALSE;
@@ -267,7 +282,7 @@ int main() {
         samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        VkSampler testSampler = vk::createSampler(vkDevice, samplerCreateInfo);
+        testSampler = vk::createSampler(vkDevice, samplerCreateInfo);
 
         hostDeviceTransfer.submitOneTimeTransferBuffer([&testImage](VkCommandBuffer transferBuffer) {
             VkImageMemoryBarrier transferSrcMemoryBarrier = vk::imageMemoryBarrier(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
@@ -292,6 +307,22 @@ int main() {
         hostDeviceTransfer.transferImageFromBuffer(width, height, channels, 4, convertedResult, testImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     }
+
+    // CREATE DESCRIPTORS POOLS
+    VkDescriptorPoolSize textureDescriptorPoolSize = vk::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100);
+    std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {textureDescriptorPoolSize};
+    VkDescriptorPool textureDescriptorPool = vk::createDescriptorPool(vkDevice, vk::descriptorPoolCreateInfo(descriptorPoolSizes, 100));
+    // END
+    //CREATE AND UPDATE DESCRIPTOR SETS
+    VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo = vk::descriptorSetAllocateInfo(textureDescriptorPool, textureDescriptorSetLayouts);
+    VkDescriptorSet textureDescriptorSet = vk::allocateDescriptorSets(vkDevice, 1, &vkDescriptorSetAllocateInfo)[0];
+    std::vector<VkDescriptorSet> descriptorSets = {textureDescriptorSet};
+    VkDescriptorImageInfo vkTextureImageInfo = vk::descriptorImageInfo(testSampler, testImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    std::vector<VkDescriptorImageInfo> descriptorImageInfos = {vkTextureImageInfo};
+    VkWriteDescriptorSet textureDescriptorSetWrite = vk::writeDescriptorSet(descriptorImageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, textureDescriptorSet, 0, 0);
+    vkUpdateDescriptorSets(vkDevice, 1, &textureDescriptorSetWrite, 0, nullptr);
+    //END
+
     VkClearValue colorBufferClearValue;
     colorBufferClearValue.color = {1, 0, 0, 1};
     std::vector<VkClearValue> clearValues = {colorBufferClearValue};
@@ -328,10 +359,10 @@ int main() {
                     VkDeviceSize offsets = 0;
                     vkCmdBindVertexBuffers(currentFrame.commandBuffer, 0, 1, &vertexBuffer.buffer, &offsets);
                     vkCmdBindIndexBuffer(currentFrame.commandBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdBindDescriptorSets(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &textureDescriptorSet, 0, nullptr);
                     vkCmdDrawIndexed(currentFrame.commandBuffer, indexVector.size(), 1, 0, 0, 0);
                 }
                 vkCmdEndRenderPass(currentFrame.commandBuffer);
-
                 vkCmdBeginRenderPass(currentFrame.commandBuffer, &imGuiRenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
                 {
                     vkCmdBindPipeline(currentFrame.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultPipeline);

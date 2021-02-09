@@ -10,6 +10,7 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 #include <iostream>
+
 namespace vk {
     inline void VK_ASSERT(VkResult result) {
         if (result == VK_NOT_READY) {
@@ -222,8 +223,26 @@ namespace vk {
 
     inline VkPipeline *createGraphicsPipelines(VkDevice vkDevice, VkPipelineCache pipelineCache, uint32_t createInfoCount, VkGraphicsPipelineCreateInfo *pCreateInfos) {
         VkPipeline *vkPipelines = new VkPipeline[createInfoCount];
-        vkCreateGraphicsPipelines(vkDevice, pipelineCache, createInfoCount, pCreateInfos, nullptr, vkPipelines);
+        VK_ASSERT(vkCreateGraphicsPipelines(vkDevice, pipelineCache, createInfoCount, pCreateInfos, nullptr, vkPipelines));
         return vkPipelines;
+    }
+
+    inline VkDescriptorPool createDescriptorPool(VkDevice vkDevice, VkDescriptorPoolCreateInfo vkDescriptorPoolCreateInfo) {
+        VkDescriptorPool vkDescriptorPool;
+        VK_ASSERT(vkCreateDescriptorPool(vkDevice, &vkDescriptorPoolCreateInfo, nullptr, &vkDescriptorPool));
+        return vkDescriptorPool;
+    }
+
+    inline VkDescriptorSet *allocateDescriptorSets(VkDevice vkDevice, int descriptorSetsCount, VkDescriptorSetAllocateInfo *vkDescriptorSetsAllocateInfo) {
+        VkDescriptorSet *vkDescriptorSets = new VkDescriptorSet[descriptorSetsCount];
+        VK_ASSERT(vkAllocateDescriptorSets(vkDevice, vkDescriptorSetsAllocateInfo, vkDescriptorSets));
+        return vkDescriptorSets;
+    }
+
+    inline VkDescriptorSetLayout createDescriptorSetLayout(VkDevice vkDevice, VkDescriptorSetLayoutCreateInfo vkDescriptorSetLayoutCreateInfo) {
+        VkDescriptorSetLayout vkDescriptorSetLayout;
+        VK_ASSERT(vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, nullptr, &vkDescriptorSetLayout));
+        return vkDescriptorSetLayout;
     }
 }
 
