@@ -1,5 +1,6 @@
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define STB_IMAGE_IMPLEMENTATION
 #define PI 3.14159265359
 
 #include <GLFW/glfw3.h>
@@ -19,9 +20,12 @@
 #include "Refactoring/Buffer.h"
 #include "Refactoring/Queue.h"
 #include "Refactoring/HostDeviceTransfer.h"
+#include "Refactoring/Texture2D/Image2D.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
+#include "../Dependencies/stb/stb_image.h"
+#include "Refactoring/CommandBuffer.h"
 
 int const WIDTH = 500;
 int const HEIGHT = 500;
@@ -218,30 +222,76 @@ int main() {
             0, 1, 2, 0, 3, 1
     };
 
-    std::vector<uint32_t> vertexAndIndicesQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily, physicalDeviceInfo.queueFamilies.transferFamily};
-//    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), vertexAndIndicesQueues, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0,
-//                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-//    void *vertexMemoryMapping;
-//    vkMapMemory(vkDevice, vertexBuffer.memory.vkDeviceMemory, vertexBuffer.memory.vkOffset, vertexBuffer.size, 0, &vertexMemoryMapping);
-//    memcpy(vertexMemoryMapping, vertexInputs.data(), vertexBuffer.size);
-    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), vertexAndIndicesQueues,
+    std::vector<uint32_t> graphicsAndTransferQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily, physicalDeviceInfo.queueFamilies.transferFamily};
+
+    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), graphicsAndTransferQueues,
                                          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_CONCURRENT, 0,
                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    hostDeviceTransfer.transferBuffer(vertexBuffer.size, vertexInputs.data(), vertexBuffer, [](VkCommandBuffer commandBuffer) {
-        std::cout << "Callback vertex Executed" << std::endl;
-    });
-    vk::Buffer indexBuffer = vk::Buffer(vkDevice, indexVector.size() * sizeof(uint32_t), vertexAndIndicesQueues,
+    hostDeviceTransfer.transferBuffer(vertexBuffer.size, vertexInputs.data(), vertexBuffer);
+    vk::Buffer indexBuffer = vk::Buffer(vkDevice, indexVector.size() * sizeof(uint32_t), graphicsAndTransferQueues,
                                         VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                         VK_SHARING_MODE_CONCURRENT, 0, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    hostDeviceTransfer.transferBuffer(indexBuffer.size, indexVector.data(), indexBuffer, [](VkCommandBuffer commandBuffer) {
-        std::cout << "Callback index Executed" << std::endl;
-    });
-    //    void *indexMemoryMapping;
-//    vkMapMemory(vkDevice, indexBuffer.memory.vkDeviceMemory, indexBuffer.memory.vkOffset, indexBuffer.size, 0, &indexMemoryMapping);
-//    memcpy(indexMemoryMapping, indexVector.data(), indexBuffer.size);
-//    VkMappedMemoryRange vkMappedMemoryRange = vk::mappedMemoryRange(vertexBufferMemory.vkDeviceMemory,vertexBufferMemory.vkOffset, VK_WHOLE_SIZE);
-//    vkFlushMappedMemoryRanges(vkDevice, 1, &vkMappedMemoryRange);
+    hostDeviceTransfer.transferBuffer(indexBuffer.size, indexVector.data(), indexBuffer);
 
+    vk::CommandBuffer commandBuffer = vk::CommandBuffer(vkDevice, graphicsQueue, graphicsPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
+    {
+        int width, height, channels = 0;
+        unsigned char *result = stbi_load(FileLoader::getPath("Resources/cat.bmp").c_str(), &width, &height, &channels, 0);
+        float *convertedResult = new float[width * height * channels];
+        for (int i = 0; i < width * height; i++) {
+            for (int j = 0; j < channels; j++) {
+                convertedResult[(i * 4) + j] = result[i];
+            }
+        }
+        std::cout << "Loaded image" << std::endl;
+        std::cout << "w:" << width << " h:" << height << " c:" << channels << std::endl;
+        VkImage testImage = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                                          vk::extent3D(width, height, 1), 1, 1, VK_SAMPLE_COUNT_1_BIT,
+                                                                          VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                          VK_SHARING_MODE_CONCURRENT, graphicsAndTransferQueues, VK_IMAGE_LAYOUT_UNDEFINED));
+        VkMemoryRequirements requirements = vk::getImageMemoryRequirements(vkDevice, testImage);
+        AllocationBlock memory = VMA::getInstance().vmalloc(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vkBindImageMemory(vkDevice, testImage, memory.vkDeviceMemory, memory.vkOffset);
+        VkImageView testImageView = vk::createImageView(vkDevice,
+                                                        vk::imageViewCreateInfo(testImage, VK_IMAGE_VIEW_TYPE_2D,
+                                                                                VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                                                {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+                                                                                 VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
+                                                                                vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                          0, 1, 0, 1)));
+        VkSamplerCreateInfo samplerCreateInfo = vk::samplerCreateInfo();
+        samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerCreateInfo.compareEnable = VK_FALSE;
+        samplerCreateInfo.anisotropyEnable = VK_FALSE;
+        samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        VkSampler testSampler = vk::createSampler(vkDevice, samplerCreateInfo);
+
+        hostDeviceTransfer.submitOneTimeTransferBuffer([&testImage](VkCommandBuffer transferBuffer) {
+            VkImageMemoryBarrier transferSrcMemoryBarrier = vk::imageMemoryBarrier(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                                                                                   testImage, vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0,
+                                                                                                                        1, 0, 1));
+            vkCmdPipelineBarrier(transferBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                                 0, nullptr,
+                                 0, nullptr, 1, &transferSrcMemoryBarrier);
+        });
+
+        VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        commandBuffer.submitOneTime({}, {}, &waitDstFlags, [&testImage](VkCommandBuffer commandBuffer) {
+            VkImageMemoryBarrier imageReadMemoryBarrier = vk::imageMemoryBarrier(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                                                                                 testImage, vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0,
+                                                                                                                      1, 0, 1));
+            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
+                                 0, nullptr,
+                                 0, nullptr, 1, &imageReadMemoryBarrier);
+        });
+        hostDeviceTransfer.transferImageFromBuffer(width, height, channels, 4, convertedResult, testImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    }
     VkClearValue colorBufferClearValue;
     colorBufferClearValue.color = {1, 0, 0, 1};
     std::vector<VkClearValue> clearValues = {colorBufferClearValue};

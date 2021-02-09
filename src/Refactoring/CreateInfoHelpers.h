@@ -196,11 +196,27 @@ namespace vk {
         return vkExtent2D;
     }
 
+    inline VkExtent3D extent3D(uint32_t width, uint32_t height, uint32_t depth) {
+        VkExtent3D vkExtent3D{};
+        vkExtent3D.width = width;
+        vkExtent3D.height = height;
+        vkExtent3D.depth = depth;
+        return vkExtent3D;
+    }
+
     inline VkOffset2D offset2D(int32_t x, int32_t y) {
         VkOffset2D vkOffset2D{};
         vkOffset2D.x = x;
         vkOffset2D.y = y;
         return vkOffset2D;
+    }
+
+    inline VkOffset3D offset3D(int32_t x, int32_t y,int32_t z) {
+        VkOffset3D vkOffset3D{};
+        vkOffset3D.x = x;
+        vkOffset3D.y = y;
+        vkOffset3D.z = z;
+        return vkOffset3D;
     }
 
     inline VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo(const std::vector<VkViewport> &viewports, const std::vector<VkRect2D> &scissors) {
@@ -727,6 +743,12 @@ namespace vk {
         vkSamplerCreateInfo.maxLod = maxLod;
         vkSamplerCreateInfo.borderColor = borderColor;
         vkSamplerCreateInfo.unnormalizedCoordinates = unnormalizedCoordinates;
+        return vkSamplerCreateInfo;
+    }
+
+    inline VkSamplerCreateInfo samplerCreateInfo() {
+        VkSamplerCreateInfo vkSamplerCreateInfo{};
+        vkSamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
         return vkSamplerCreateInfo;
     }
 }

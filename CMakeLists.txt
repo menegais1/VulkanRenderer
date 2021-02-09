@@ -45,6 +45,6 @@ add_executable(VulkanBase
         src/VulkanGui.h
         src/Refactoring/HostDeviceTransfer.cpp
         src/Refactoring/HostDeviceTransfer.h
-        src/MemoryManagement/VMA.h src/MemoryManagement/VMA.cpp src/Refactoring/Queue.cpp src/Refactoring/Queue.h)
+        src/MemoryManagement/VMA.h src/MemoryManagement/VMA.cpp src/Refactoring/Queue.cpp src/Refactoring/Queue.h src/Refactoring/Texture2D/Image2D.cpp src/Refactoring/Texture2D/Image2D.h src/Refactoring/Texture2D/ImageView2D.cpp src/Refactoring/Texture2D/ImageView2D.h src/Refactoring/CommandBuffer.cpp src/Refactoring/CommandBuffer.h)
 
 target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)

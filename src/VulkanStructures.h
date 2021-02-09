@@ -13,7 +13,7 @@
 
 
 
-struct Texture2D {
+struct Image2D {
     void *data;
     uint32_t width;
     uint32_t height;
