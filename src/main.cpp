@@ -256,10 +256,10 @@ int main() {
         float *convertedResult = new float[width * height * channels];
         for (int i = 0; i < width * height; i++) {
             for (int j = 0; j < channels; j++) {
-                convertedResult[(i * 4) + j] = result[i];
+                convertedResult[(i * 4) + j] = result[(i * 4) + j] / 255.0;
             }
         }
-        std::cout << "Loaded image" << std::endl;
+        std::cout << "Loaded image " << convertedResult[40] << " " << convertedResult[41] << " " << convertedResult[42] << " " << convertedResult[43] << std::endl;
         std::cout << "w:" << width << " h:" << height << " c:" << channels << std::endl;
         testImage = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                   vk::extent3D(width, height, 1), 1, 1, VK_SAMPLE_COUNT_1_BIT,
@@ -294,6 +294,8 @@ int main() {
                                  0, nullptr, 1, &transferSrcMemoryBarrier);
         });
 
+        hostDeviceTransfer.transferImageFromBuffer(width, height, channels, 4, convertedResult, testImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
         VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         commandBuffer.submitOneTime({}, {}, &waitDstFlags, [&testImage](VkCommandBuffer commandBuffer) {
             VkImageMemoryBarrier imageReadMemoryBarrier = vk::imageMemoryBarrier(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -304,7 +306,6 @@ int main() {
                                  0, nullptr,
                                  0, nullptr, 1, &imageReadMemoryBarrier);
         });
-        hostDeviceTransfer.transferImageFromBuffer(width, height, channels, 4, convertedResult, testImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     }
 

@@ -45,6 +45,8 @@ void vk::HostDeviceTransfer::transferImageFromBuffer(uint32_t width, uint32_t he
         allocateStagingBuffer(dataSize * 1.1);
     }
     memcpy(mappedMemory, data, dataSize);
+    VkPipelineStageFlags waitDstStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
     vk::CommandBufferUtils::beginCommandBuffer(vkDevice, transferCommandBuffer, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
     {
         VkBufferImageCopy vkBufferImageCopy = vk::bufferImageCopy(0, 0, 0,
@@ -52,6 +54,7 @@ void vk::HostDeviceTransfer::transferImageFromBuffer(uint32_t width, uint32_t he
                                                                   vk::offset3D(0, 0, 0), vk::extent3D(width, height, 1));
         vkCmdCopyBufferToImage(transferCommandBuffer, stagingBuffer.buffer, dstImage, dstImageLayout, 1, &vkBufferImageCopy);
     }
+    vk::CommandBufferUtils::submitCommandBuffer(transferQueue.queue, transferCommandBuffer, {}, {}, &waitDstStageFlags, transferCompleted);
 }
 
 void vk::HostDeviceTransfer::allocateStagingBuffer(VkDeviceSize size) {
