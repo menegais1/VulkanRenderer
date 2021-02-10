@@ -20,10 +20,23 @@ namespace vk {
         VkFence fence;
         Queue queue;
         VkDevice vkDevice;
+        VkCommandPool pool;
+
+        CommandBuffer();
 
         CommandBuffer(VkDevice vkDevice, vk::Queue queue, VkCommandPool pool, VkCommandBufferLevel level);
+//
+//        void begin(VkCommandBufferUsageFlags flags);
+//
+//        void submit(std::vector<VkSemaphore> waitSemaphores, std::vector<VkSemaphore> signalSemaphores, VkPipelineStageFlags *waitDstStageFlags);
 
-        void submitOneTime(std::vector<VkSemaphore> waitSemaphores, std::vector<VkSemaphore> signalSemaphores, VkPipelineStageFlags *waitDstStageFlags, std::function<void(VkCommandBuffer)> callback);
+//        void submitOneTime(std::vector<VkFence> fences, bool resetFences, std::vector<VkSemaphore> waitSemaphores, std::vector<VkSemaphore> signalSemaphores,
+//                           VkPipelineStageFlags *waitDstStageFlags, std::function<void(VkCommandBuffer)> callback);
+
+        void submitOneTime(std::vector<VkSemaphore> waitSemaphores, std::vector<VkSemaphore> signalSemaphores,
+                           VkPipelineStageFlags *waitDstStageFlags, std::function<void(VkCommandBuffer)> callback);
+
+//        void waitForFences(const std::vector<VkFence> &fences, bool resetFences);
     };
 }
 

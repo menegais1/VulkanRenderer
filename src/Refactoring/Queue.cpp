@@ -7,3 +7,7 @@
 vk::Queue::Queue(VkDevice vkDevice, uint32_t queueFamily, uint32_t queueIndex) : queueFamily(queueFamily), queueIndex(queueIndex) {
     vkGetDeviceQueue(vkDevice, queueFamily, queueIndex, &queue);
 }
+
+vk::Queue::Queue() {
+
+}

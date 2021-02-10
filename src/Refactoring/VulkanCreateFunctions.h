@@ -244,6 +244,13 @@ namespace vk {
         VK_ASSERT(vkCreateDescriptorSetLayout(vkDevice, &vkDescriptorSetLayoutCreateInfo, nullptr, &vkDescriptorSetLayout));
         return vkDescriptorSetLayout;
     }
+
+    inline VkCommandBufferBeginInfo commandBufferBeginInfo(VkCommandBufferUsageFlags flags) {
+        VkCommandBufferBeginInfo vkCommandBufferBeginInfo{};
+        vkCommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        vkCommandBufferBeginInfo.flags = flags;
+        return vkCommandBufferBeginInfo;
+    }
 }
 
 #endif //VULKANBASE_VULKANCREATEFUNCTIONS_H

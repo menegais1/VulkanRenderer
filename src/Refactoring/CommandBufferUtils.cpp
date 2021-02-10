@@ -9,9 +9,7 @@
 void vk::CommandBufferUtils::beginCommandBuffer(VkDevice vkDevice, VkCommandBuffer commandBuffer,
                                                 VkCommandBufferUsageFlags flags, std::vector<VkFence> fences,
                                                 bool resetFences) {
-    VkCommandBufferBeginInfo bufferBegin{};
-    bufferBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    bufferBegin.flags = flags;
+    VkCommandBufferBeginInfo bufferBegin = vk::commandBufferBeginInfo(flags);
     waitForFences(vkDevice, fences, resetFences);
     vk::VK_ASSERT(vkBeginCommandBuffer(commandBuffer, &bufferBegin));
 }
@@ -27,8 +25,7 @@ void vk::CommandBufferUtils::submitCommandBuffer(VkQueue queue,
     vk::VK_ASSERT(vkQueueSubmit(queue, 1, &transferSubmitInfo, fence));
 }
 
-void vk::CommandBufferUtils::waitForFences(const VkDevice vkDevice, std::vector<VkFence> fences,
-                                           bool resetFences) {
+void vk::CommandBufferUtils::waitForFences(const VkDevice vkDevice, std::vector<VkFence> fences, bool resetFences) {
     if (!fences.empty()) {
         vk::VK_ASSERT(vkWaitForFences(vkDevice, fences.size(), fences.data(), VK_TRUE, UINT64_MAX));
         if (resetFences)

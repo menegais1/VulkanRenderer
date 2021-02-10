@@ -17,6 +17,8 @@ namespace vk {
         uint32_t queueFamily;
         uint32_t queueIndex;
 
+        Queue();
+
         Queue(VkDevice vkDevice, uint32_t queueFamily, uint32_t queueIndex);
     };
 

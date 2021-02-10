@@ -205,9 +205,8 @@ int main() {
 
 
     uint32_t renderFramesAmount = 2;
-    VkCommandBuffer *graphicsCommandBuffers = {vk::allocateCommandBuffers(vkDevice,
-                                                                          vk::commandBufferAllocateInfo(graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY),
-                                                                          renderFramesAmount)};
+    VkCommandBuffer* graphicsCommandBuffers = {vk::allocateCommandBuffers(vkDevice, vk::commandBufferAllocateInfo(graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY),
+                                                                           renderFramesAmount)};
 
     std::vector<RenderFrame> renderFrames(renderFramesAmount);
     for (int i = 0; i < renderFramesAmount; ++i) {
