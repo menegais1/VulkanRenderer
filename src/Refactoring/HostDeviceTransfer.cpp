@@ -22,8 +22,10 @@ vk::HostDeviceTransfer::HostDeviceTransfer(VkDevice vkDevice, vk::Queue transfer
 void vk::HostDeviceTransfer::transferBuffer(uint32_t dataSize, void *data, vk::Buffer dstBuffer) {
     vk::CommandBufferUtils::waitForFences(vkDevice, {transferCompleted}, true);
 
-    if (dataSize > stagingBuffer.size) {
-        allocateStagingBuffer(dataSize * 1.1);
+    if (dataSize > stagingBuffer.size)
+    {
+        VkMemoryRequirements memory = vk::getBufferMemoryRequirements(vkDevice, dstBuffer.buffer);
+        allocateStagingBuffer(memory.size);
     }
 
     memcpy(mappedMemory, data, dataSize);
@@ -41,8 +43,10 @@ void vk::HostDeviceTransfer::transferImageFromBuffer(uint32_t width, uint32_t he
                                                      void *data, VkImage dstImage, VkImageLayout dstImageLayout) {
     vk::CommandBufferUtils::waitForFences(vkDevice, {transferCompleted}, true);
     uint32_t dataSize = width * height * channels * bytesPerChannel;
-    if (dataSize > stagingBuffer.size) {
-        allocateStagingBuffer(dataSize * 1.1);
+    if (dataSize > stagingBuffer.size)
+    {
+        VkMemoryRequirements memory = vk::getImageMemoryRequirements(vkDevice, dstImage);
+        allocateStagingBuffer(memory.size);
     }
     memcpy(mappedMemory, data, dataSize);
     VkPipelineStageFlags waitDstStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;

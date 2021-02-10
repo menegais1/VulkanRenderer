@@ -11,6 +11,7 @@ file(GLOB Dear "Dependencies/imgui/*.h" "Dependencies/imgui/*.cpp")
 ADD_SUBDIRECTORY(Dependencies/glfw-3.3.2)
 ADD_SUBDIRECTORY(Dependencies/glm)
 include_directories(Dependencies/imgui)
+include_directories(Dependencies/tinyobjloader)
 add_executable(VulkanBase
         Dependencies/stb/stb_image.h
         src/main.cpp

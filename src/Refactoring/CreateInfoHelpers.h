@@ -759,6 +759,15 @@ namespace vk {
         vkDescriptorImageInfo.imageLayout = imageLayout;
         return vkDescriptorImageInfo;
     }
+
+    inline VkDescriptorBufferInfo descriptorBufferInfo(const VkBuffer& buffer, const VkDeviceSize& offset, const VkDeviceSize& range)
+    {
+        VkDescriptorBufferInfo vkDescriptorImageInfo;
+        vkDescriptorImageInfo.buffer = buffer;
+        vkDescriptorImageInfo.offset = offset;
+        vkDescriptorImageInfo.range = range;
+        return vkDescriptorImageInfo;
+    }
 }
 
 #endif//VULKANBASE_CREATEINFOHELPERS_H

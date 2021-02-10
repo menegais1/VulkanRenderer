@@ -11,7 +11,7 @@
 #include <vector>
 #include "../MemoryManagement/AllocationBlock.h"
 
-namespace vk {
+    namespace vk {
 
     class Buffer {
     public:

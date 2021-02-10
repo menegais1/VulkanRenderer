@@ -233,8 +233,8 @@ namespace vk {
         return vkDescriptorPool;
     }
 
-    inline VkDescriptorSet *allocateDescriptorSets(VkDevice vkDevice, int descriptorSetsCount, VkDescriptorSetAllocateInfo *vkDescriptorSetsAllocateInfo) {
-        VkDescriptorSet *vkDescriptorSets = new VkDescriptorSet[descriptorSetsCount];
+    inline VkDescriptorSet *allocateDescriptorSets(VkDevice vkDevice, uint32_t descriptorSetsCount, VkDescriptorSetAllocateInfo *vkDescriptorSetsAllocateInfo) {
+        auto vkDescriptorSets = new VkDescriptorSet[descriptorSetsCount];
         VK_ASSERT(vkAllocateDescriptorSets(vkDevice, vkDescriptorSetsAllocateInfo, vkDescriptorSets));
         return vkDescriptorSets;
     }

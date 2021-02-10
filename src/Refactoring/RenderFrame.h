@@ -8,6 +8,7 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include <GLFW/glfw3.h>
+#include "Buffer.h"
 
 struct RenderFrame {
     VkCommandBuffer commandBuffer;
@@ -15,6 +16,7 @@ struct RenderFrame {
     VkSemaphore presentationReadySemaphore;
     VkFramebuffer frameBuffer;
     VkFence bufferFinishedFence;
+    vk::Buffer uniformBuffer;
 };
 
 #endif //VULKANBASE_RENDERFRAME_H
