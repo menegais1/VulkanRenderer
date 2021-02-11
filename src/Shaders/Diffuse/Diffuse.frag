@@ -5,6 +5,13 @@ layout (location = 1) in vec2 in_uv;
 layout (location = 2) in vec3 in_pos;
 layout (location = 3) in vec3 in_light;
 
+layout(binding = 0) uniform UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 projection;
+    float fresnel;
+    float geometry;
+} uniformObject;
 layout(binding = 1) uniform sampler2D albedo;
 layout(binding = 2) uniform sampler2D normal;
 layout(binding = 3) uniform sampler2D metallicRoughness;
@@ -17,7 +24,7 @@ void main()
     vec3 lightColor = vec3(1.0, 1.0, 1.0);
 
     // ambient
-    float ambientStrength = 0.05f;
+    float ambientStrength = 0.05f * uniformObject.geometry;
     vec3 ambient = ambientStrength * lightColor;
 
     // diffuse

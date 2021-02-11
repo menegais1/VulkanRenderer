@@ -48,7 +48,7 @@ private:
     uint32_t uniformBufferCount;
 
     /* Helper function */
-    void createDescriptorLayout(VkDescriptorType descriptorType, VkShaderStageFlagBits stageFlags);
+    void createDescriptorLayout(VkDescriptorType descriptorType, VkShaderStageFlags stageFlags);
 
 };
 

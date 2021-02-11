@@ -10,7 +10,7 @@ ResourcesManager::ResourcesManager(VkDevice &device) : device(device), uniformBu
 
 void ResourcesManager::addUniformBufferLayout(uint32_t sets)
 {
-    createDescriptorLayout(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+    createDescriptorLayout(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
     uniformBufferCount += sets;
 }
 
@@ -28,7 +28,7 @@ std::vector<VkDescriptorSetLayout> ResourcesManager::commitDescriptorBindings()
     return descriptorSetLayouts;
 }
 
-void ResourcesManager::createDescriptorLayout(VkDescriptorType descriptorType, VkShaderStageFlagBits stageFlags)
+void ResourcesManager::createDescriptorLayout(VkDescriptorType descriptorType, VkShaderStageFlags stageFlags)
 {
     uint32_t binding = descriptorSetLayoutBindings.size();
     auto descriptorSetLayout = vk::descriptorSetLayoutBinding(binding, descriptorType, 1, stageFlags);
