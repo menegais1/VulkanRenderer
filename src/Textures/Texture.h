@@ -20,7 +20,10 @@ public:
     VkImage image;
     VkSampler sampler;
     VkImageView imageView;
+    VkWriteDescriptorSet getWriteDescriptorSet(uint32_t, const VkDescriptorSet&);
+
 private:
+    VkDescriptorImageInfo imageInfo{};
 };
 
 

@@ -157,11 +157,17 @@ int main() {
     vk::Queue presentationQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.presentationFamily, 0);
     vk::Queue transferQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.transferFamily, 0);
 
-    ResourcesManager manager(vkDevice);
+    uint32_t renderFramesAmount = 2;
 
-    manager.addTextureSamplerLayout();
-    manager.addUniformBufferLayout();
-    auto descriptorSetLayouts = manager.commitDescriptorBindings();
+    ResourcesManager resourcesManager(vkDevice);
+
+    resourcesManager.addUniformBufferLayout(renderFramesAmount);
+    resourcesManager.addTextureSamplerLayout(1);
+    resourcesManager.addTextureSamplerLayout(1);
+    resourcesManager.addTextureSamplerLayout(1);
+    resourcesManager.addTextureSamplerLayout(1);
+
+    auto descriptorSetLayouts = resourcesManager.commitDescriptorBindings();
 
     VkPipelineLayout pipelineLayout;
     std::vector<uint32_t> graphicsQueueList = {graphicsQueue.queueIndex};
@@ -202,8 +208,8 @@ int main() {
         float blendConstants[4] = {1, 1, 1, 1};
         std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
         VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/UnlitTexture.vert.spv"));
-        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/UnlitTexture.frag.spv"));
+        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.vert.spv"));
+        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.frag.spv"));
         VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
         VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
@@ -247,7 +253,6 @@ int main() {
     VkCommandPool graphicsPool = vk::createCommandPool(vkDevice, vk::commandPoolCreateInfo(physicalDeviceInfo.queueFamilies.graphicsFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT));
 
 
-    uint32_t renderFramesAmount = 2;
     VkCommandBuffer *graphicsCommandBuffers = {vk::allocateCommandBuffers(vkDevice, vk::commandBufferAllocateInfo(graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY),
                                                                           renderFramesAmount)};
 
@@ -288,34 +293,43 @@ int main() {
     vk::CommandBuffer commandBuffer = vk::CommandBuffer(vkDevice, graphicsQueue, graphicsPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
     Texture albedo(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_baseColor.jpeg"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
+    Texture normal(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_normal.jpeg"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
+    Texture metallicRoughness(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_metallicRoughness.png"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
+    Texture emissive(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_emissive.jpeg"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
 
-    auto descriptorPool = manager.createDescriptorPools(renderFramesAmount);
 
-    //Todo: Move to Descriptor manager
-    //CREATE AND UPDATE DESCRIPTOR SETS
+    auto descriptorPool = resourcesManager.createDescriptorPools();
 
+    int binding = 0;
+
+    // Todo: Move to Resources Manager
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo = vk::descriptorSetAllocateInfo(descriptorPool, descriptorSetLayouts);
-    VkDescriptorSet descriptorSet = vk::allocateDescriptorSets(vkDevice, renderFramesAmount, &vkDescriptorSetAllocateInfo)[0];
+    VkDescriptorSet descriptorSet = vk::allocateDescriptorSets(vkDevice, renderFramesAmount + 1, &vkDescriptorSetAllocateInfo)[0];
 
-    for (auto &renderFrame : renderFrames) {
+    for (auto &renderFrame : renderFrames)
+    {
         std::vector<VkWriteDescriptorSet> descriptorWriteSet{};
-
-        /* Texture */
-        VkDescriptorImageInfo vkTextureImageInfo = vk::descriptorImageInfo(albedo.sampler, albedo.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        std::vector<VkDescriptorImageInfo> descriptorImageInfos = {vkTextureImageInfo};
-        VkWriteDescriptorSet textureDescriptorSetWrite = vk::writeDescriptorSet(descriptorImageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorSet, 0, 0);
-        descriptorWriteSet.push_back(textureDescriptorSetWrite);
 
         /* Uniform Buffers */
         VkDescriptorBufferInfo vkUniformBufferInfo = vk::descriptorBufferInfo(renderFrame.uniformBuffer.buffer, 0,
                                                                               renderFrame.uniformBuffer.size);
         std::vector<VkDescriptorBufferInfo> descriptorBufferInfoVector = {vkUniformBufferInfo};
-        VkWriteDescriptorSet uniformDescriptorSetWrite = vk::writeDescriptorSet(descriptorBufferInfoVector, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorSet, 1, 0);
+        VkWriteDescriptorSet uniformDescriptorSetWrite = vk::writeDescriptorSet(descriptorBufferInfoVector, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorSet, binding, 0);
         descriptorWriteSet.push_back(uniformDescriptorSetWrite);
+
         vkUpdateDescriptorSets(vkDevice, descriptorWriteSet.size(), descriptorWriteSet.data(), 0, nullptr);
     }
 
-    //END
+    binding++;
+
+    std::vector<VkWriteDescriptorSet> descriptorSets =
+    {
+        albedo.getWriteDescriptorSet(binding++, descriptorSet),
+        normal.getWriteDescriptorSet(binding++, descriptorSet),
+        metallicRoughness.getWriteDescriptorSet(binding++, descriptorSet),
+        emissive.getWriteDescriptorSet(binding++, descriptorSet)
+    };
+    vkUpdateDescriptorSets(vkDevice, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 
     VkClearValue colorBufferClearValue;
     VkClearValue depthBufferClearValue;

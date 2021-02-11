@@ -8,9 +8,7 @@
 #include "../../Dependencies/stb/stb_image.h"
 #include "../Refactoring/VulkanCreateFunctions.h"
 #include "../Refactoring/CreateInfoHelpers.h"
-#include "../MemoryManagement/AllocationBlock.h"
 #include "../MemoryManagement/VMA.h"
-#include "../Refactoring/CommandBuffer.h"
 
 Texture::Texture(const VkDevice& vkDevice, const std::string& path, vk::HostDeviceTransfer& hostDeviceTransfer,
                  const std::vector<uint32_t>& graphicsAndTransferQueues, const vk::CommandBuffer& commandBuffer)
@@ -47,6 +45,7 @@ Texture::Texture(const VkDevice& vkDevice, const std::string& path, vk::HostDevi
                                                                  VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
                                                                 vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT,
                                                                                           0, 1, 0, 1)));
+
     VkSamplerCreateInfo samplerCreateInfo = vk::samplerCreateInfo();
     samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
     samplerCreateInfo.compareEnable = VK_FALSE;
@@ -80,4 +79,11 @@ Texture::Texture(const VkDevice& vkDevice, const std::string& path, vk::HostDevi
                              0, nullptr, 1, &imageReadMemoryBarrier);
     });
 
+
+}
+
+VkWriteDescriptorSet Texture::getWriteDescriptorSet(uint32_t dstBinding, const VkDescriptorSet& descriptorSet)
+{
+    imageInfo = vk::descriptorImageInfo(sampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    return vk::writeDescriptorSet(&imageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorSet, dstBinding, 0);
 }

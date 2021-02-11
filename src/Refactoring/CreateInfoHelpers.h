@@ -412,6 +412,20 @@ namespace vk {
         return vkWriteDescriptorSet;
     }
 
+    inline VkWriteDescriptorSet writeDescriptorSet(VkDescriptorImageInfo* imageInfo, VkDescriptorType descriptorType, VkDescriptorSet descriptorSet,
+                                                   uint32_t dstBinding, uint32_t dstArrayElement) {
+        VkWriteDescriptorSet vkWriteDescriptorSet{};
+        vkWriteDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        vkWriteDescriptorSet.descriptorCount = 1;
+        vkWriteDescriptorSet.descriptorType = descriptorType;
+        vkWriteDescriptorSet.dstSet = descriptorSet;
+        vkWriteDescriptorSet.dstBinding = dstBinding;
+        vkWriteDescriptorSet.dstArrayElement = dstArrayElement;
+        vkWriteDescriptorSet.pImageInfo = imageInfo;
+        return vkWriteDescriptorSet;
+    }
+
+
     inline VkWriteDescriptorSet writeDescriptorSet(const std::vector<VkDescriptorImageInfo> &imageInfo, VkDescriptorType descriptorType, VkDescriptorSet descriptorSet,
                                                    uint32_t dstBinding, uint32_t dstArrayElement) {
         VkWriteDescriptorSet vkWriteDescriptorSet{};
@@ -437,6 +451,7 @@ namespace vk {
         vkWriteDescriptorSet.pTexelBufferView = texelBufferView.data();
         return vkWriteDescriptorSet;
     }
+
 
     inline VkCommandPoolCreateInfo commandPoolCreateInfo(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags) {
         VkCommandPoolCreateInfo vkCommandPoolCreateInfo{};
