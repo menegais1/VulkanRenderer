@@ -21,16 +21,25 @@ public:
                                                                             VK_ATTACHMENT_STORE_OP_STORE,
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                                             VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        VkAttachmentDescription depthAttachment = vk::attachmentDescription(VK_FORMAT_D32_SFLOAT_S8_UINT,
+                                                                            VK_SAMPLE_COUNT_1_BIT,
+                                                                            VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                                                                            VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                                                                            VK_IMAGE_LAYOUT_UNDEFINED,
+                                                                            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
         VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
                                                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
+        VkAttachmentReference depthAttachmentReference = vk::attachmentReference(1,
+                                                                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        std::vector<VkAttachmentReference> colorReferences = {colorAttachmentReference};
+        std::vector<VkAttachmentReference> depthReferences = {depthAttachmentReference};
         VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                                   attachmentReferences, {}, {}, {}, {});
+                                                                   colorReferences, {}, {}, depthReferences, {});
         VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
                                                                        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                                                                        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
                                                                        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
-        std::vector<VkAttachmentDescription> attachments = {colorAttachment};
+        std::vector<VkAttachmentDescription> attachments = {colorAttachment,depthAttachment};
         std::vector<VkSubpassDependency> dependencies = {externalDependency};
         std::vector<VkSubpassDescription> subpasses = {colorSubpass};
 

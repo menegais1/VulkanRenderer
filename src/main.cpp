@@ -22,7 +22,7 @@
 #include "Refactoring/Buffer.h"
 #include "Refactoring/Queue.h"
 #include "Refactoring/HostDeviceTransfer.h"
-#include "tiny_obj_loader.h."
+#include "tiny_obj_loader.h"
 #include "Refactoring/Texture2D/Image2D.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
@@ -48,8 +48,7 @@ void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
 
 }
 
-struct VertexInput
-{
+struct VertexInput {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 uv;
@@ -57,8 +56,7 @@ struct VertexInput
     VertexInput(const glm::vec3 &position, const glm::vec3 &normal, const glm::vec2 &uv) : position(position), normal(normal), uv(uv) {}
 };
 
-struct Uniform
-{
+struct Uniform {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
@@ -66,7 +64,7 @@ struct Uniform
     Uniform(glm::mat4 model, glm::mat4 view, glm::mat4 projection) : model(model), view(view), projection(projection) {}
 };
 
-std::vector<char> loadShader(const std::string& filename) {
+std::vector<char> loadShader(const std::string &filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::in | std::ios::ate);
     if (!file.is_open()) {
         std::cerr << "CANNOT OPEN SHADER FILE" << std::endl;
@@ -92,23 +90,32 @@ GLFWwindow *setupGLFW() {
     return window;
 }
 
-VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo presentationEngineInfo) {
+VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo presentationEngineInfo ){
     VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
                                                                         VK_SAMPLE_COUNT_1_BIT,
                                                                         VK_ATTACHMENT_LOAD_OP_CLEAR,
                                                                         VK_ATTACHMENT_STORE_OP_STORE,
                                                                         VK_IMAGE_LAYOUT_UNDEFINED,
                                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentDescription depthAttachment = vk::attachmentDescription(VK_FORMAT_D32_SFLOAT_S8_UINT,
+                                                                        VK_SAMPLE_COUNT_1_BIT,
+                                                                        VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                                        VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                                                                        VK_IMAGE_LAYOUT_UNDEFINED,
+                                                                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     VkAttachmentReference colorAttachmentReference = vk::attachmentReference(0,
                                                                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    std::vector<VkAttachmentReference> attachmentReferences = {colorAttachmentReference};
+    VkAttachmentReference depthAttachmentReference = vk::attachmentReference(1,
+                                                                             VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    std::vector<VkAttachmentReference> colorReferences = {colorAttachmentReference};
+    std::vector<VkAttachmentReference> depthReferences = {depthAttachmentReference};
     VkSubpassDescription colorSubpass = vk::subpassDescription(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                               attachmentReferences, {}, {}, {}, {});
+                                                               colorReferences, {}, {}, depthReferences, {});
     VkSubpassDependency externalDependency = vk::subpassDependency(VK_SUBPASS_EXTERNAL, 0,
-                                                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0,
-                                                                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0);
-    std::vector<VkAttachmentDescription> attachments = {colorAttachment};
+                                                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+                                                                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0,
+                                                                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, 0);
+    std::vector<VkAttachmentDescription> attachments = {colorAttachment, depthAttachment};
     std::vector<VkSubpassDependency> dependencies = {externalDependency};
     std::vector<VkSubpassDescription> subpasses = {colorSubpass};
     VkRenderPassCreateInfo defaultRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies,
@@ -117,29 +124,24 @@ VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo p
 }
 
 // Todo: Export to another class
-void loadObjModel(const std::string& inputFile, std::vector<VertexInput> &vertexInputs, std::vector<uint32_t> &indexVector)
-{
+void loadObjModel(const std::string &inputFile, std::vector<VertexInput> &vertexInputs, std::vector<uint32_t> &indexVector) {
     tinyobj::ObjReader reader;
-    if (!reader.ParseFromFile(inputFile))
-    {
-        if (!reader.Error().empty())
-        {
+    if (!reader.ParseFromFile(inputFile)) {
+        if (!reader.Error().empty()) {
             std::cerr << "TinyObjReader: " << reader.Error();
         }
         exit(1);
     }
 
-    if (!reader.Warning().empty())
-    {
+    if (!reader.Warning().empty()) {
         std::cout << "TinyObjReader: " << reader.Warning();
     }
 
-    auto& attrib = reader.GetAttrib();
-    auto& shapes = reader.GetShapes();
-    auto& primaryMesh = shapes[0]; /* Fetch the first shape */
+    auto &attrib = reader.GetAttrib();
+    auto &shapes = reader.GetShapes();
+    auto &primaryMesh = shapes[0]; /* Fetch the first shape */
     std::cout << "Loading model: " << primaryMesh.name << std::endl;
-    for(auto& index : primaryMesh.mesh.indices)
-    {
+    for (auto &index : primaryMesh.mesh.indices) {
         glm::vec3 pos = {attrib.vertices[3 * index.vertex_index + 0],
                          attrib.vertices[3 * index.vertex_index + 1],
                          attrib.vertices[3 * index.vertex_index + 2]};
@@ -156,14 +158,12 @@ void loadObjModel(const std::string& inputFile, std::vector<VertexInput> &vertex
     std::cout << primaryMesh.name << " loaded!" << std::endl;
 }
 
-void ImGuiUpdate()
-{
+void ImGuiUpdate() {
     ImGui::ShowDemoWindow();
 }
 
 
-void updateUniformBuffer(const VkDevice& device, RenderFrame frame)
-{
+void updateUniformBuffer(const VkDevice &device, RenderFrame frame) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -174,7 +174,7 @@ void updateUniformBuffer(const VkDevice& device, RenderFrame frame)
                     glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f));
     uniform.projection[1][1] *= -1;
 
-    void* data;
+    void *data;
     vkMapMemory(device, frame.uniformBuffer.memory.vkDeviceMemory, 0, sizeof(uniform), 0, &data);
     memcpy(data, &uniform, sizeof(uniform));
     vkUnmapMemory(device, frame.uniformBuffer.memory.vkDeviceMemory);
@@ -209,7 +209,18 @@ int main() {
     // END
 
     VkPipelineLayout pipelineLayout;
-
+    std::vector<uint32_t> graphicsQueueList = {graphicsQueue.queueIndex};
+    VkImage depthBuffer = vk::createImage(vkDevice,
+                                          vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_D32_SFLOAT_S8_UINT,
+                                                              vk::extent3D(presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 1), 1, 1,
+                                                              VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                                              VK_SHARING_MODE_EXCLUSIVE, graphicsQueueList, VK_IMAGE_LAYOUT_UNDEFINED));
+    VkMemoryRequirements requirements = vk::getImageMemoryRequirements(vkDevice, depthBuffer);
+    AllocationBlock memory = VMA::getInstance().vmalloc(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vkBindImageMemory(vkDevice, depthBuffer, memory.vkDeviceMemory, memory.vkOffset);
+    VkImageView depthBufferView = vk::createImageView(vkDevice, vk::imageViewCreateInfo(depthBuffer, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT_S8_UINT,
+                                                                                        {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
+                                                                                        vk::imageSubresourceRange(VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1)));
     VkRenderPass defaultRenderPass = createDefaultRenderPass(vkDevice, presentationEngineInfo);
     VkRenderPass imGuiRenderPass = VulkanGui::ImGuiCreateRenderPass(vkDevice, presentationEngineInfo);
     // Pipeline Creation
@@ -225,7 +236,7 @@ int main() {
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vk::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
         VkPipelineRasterizationStateCreateInfo rasterizationState = vk::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT,
                                                                                                              VK_FRONT_FACE_COUNTER_CLOCKWISE, 1.0);
-        VkPipelineDepthStencilStateCreateInfo depthStencilState = vk::pipelineDepthStencilStateCreateInfo(VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER);
+        VkPipelineDepthStencilStateCreateInfo depthStencilState = vk::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
         VkPipelineTessellationStateCreateInfo tesselationState = vk::pipelineTessellationStateCreateInfo(0);
 
         VkPipelineColorBlendAttachmentState colorBlendAttachmentState = vk::pipelineColorBlendAttachmentState();
@@ -285,8 +296,8 @@ int main() {
 
 
     uint32_t renderFramesAmount = 2;
-    VkCommandBuffer* graphicsCommandBuffers = {vk::allocateCommandBuffers(vkDevice, vk::commandBufferAllocateInfo(graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY),
-                                                                           renderFramesAmount)};
+    VkCommandBuffer *graphicsCommandBuffers = {vk::allocateCommandBuffers(vkDevice, vk::commandBufferAllocateInfo(graphicsPool, renderFramesAmount, VK_COMMAND_BUFFER_LEVEL_PRIMARY),
+                                                                          renderFramesAmount)};
 
     std::vector<uint32_t> graphicsAndTransferQueues = {physicalDeviceInfo.queueFamilies.graphicsFamily, physicalDeviceInfo.queueFamilies.transferFamily};
 
@@ -299,8 +310,9 @@ int main() {
         renderFrame.presentationReadySemaphore = vk::createSemaphore(vkDevice, vk::semaphoreCreateInfo());
         renderFrame.bufferFinishedFence = vk::createFence(vkDevice, vk::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT));
         renderFrame.frameBuffer = VK_NULL_HANDLE;
-        std::vector<uint32_t> queues {graphicsQueue.queueFamily};
-        renderFrame.uniformBuffer = vk::Buffer(vkDevice, (VkDeviceSize) sizeof(Uniform), graphicsAndTransferQueues, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        std::vector<uint32_t> queues{graphicsQueue.queueFamily};
+        renderFrame.uniformBuffer = vk::Buffer(vkDevice, (VkDeviceSize) sizeof(Uniform), graphicsAndTransferQueues, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, 0,
+                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         renderFrames[i] = renderFrame;
     }
     VulkanGui::ImGuiSetupForVulkan(window, vulkanSetup, 0, graphicsQueue.queue, imGuiRenderPass, graphicsPool);
@@ -335,10 +347,8 @@ int main() {
 
         int expectedChannels = 4;
         auto *convertedResult = new float[width * height * expectedChannels];
-        for (int i = 0; i < width * height; i++)
-        {
-            for (int j = 0; j < channels; j++)
-            {
+        for (int i = 0; i < width * height; i++) {
+            for (int j = 0; j < channels; j++) {
                 convertedResult[(i * expectedChannels) + j] = result[(i * channels) + j] / 255.0f;
             }
             convertedResult[(i * expectedChannels) + (expectedChannels - 1)] = 1.0f; // Opaque
@@ -407,9 +417,8 @@ int main() {
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo = vk::descriptorSetAllocateInfo(descriptorPool, descriptorSetLayouts);
     VkDescriptorSet descriptorSet = vk::allocateDescriptorSets(vkDevice, renderFramesAmount, &vkDescriptorSetAllocateInfo)[0];
 
-    for (auto& renderFrame : renderFrames)
-    {
-        std::vector<VkWriteDescriptorSet> descriptorWriteSet {};
+    for (auto &renderFrame : renderFrames) {
+        std::vector<VkWriteDescriptorSet> descriptorWriteSet{};
 
         /* Texture */
         VkDescriptorImageInfo vkTextureImageInfo = vk::descriptorImageInfo(testSampler, testImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -419,7 +428,7 @@ int main() {
 
         /* Uniform Buffers */
         VkDescriptorBufferInfo vkUniformBufferInfo = vk::descriptorBufferInfo(renderFrame.uniformBuffer.buffer, 0,
-                                                       renderFrame.uniformBuffer.size);
+                                                                              renderFrame.uniformBuffer.size);
         std::vector<VkDescriptorBufferInfo> descriptorBufferInfoVector = {vkUniformBufferInfo};
         VkWriteDescriptorSet uniformDescriptorSetWrite = vk::writeDescriptorSet(descriptorBufferInfoVector, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorSet, 1, 0);
         descriptorWriteSet.push_back(uniformDescriptorSetWrite);
@@ -429,8 +438,10 @@ int main() {
     //END
 
     VkClearValue colorBufferClearValue;
+    VkClearValue depthBufferClearValue;
     colorBufferClearValue.color = {0.04f, 0.04f, 0.04f, 1};
-    std::vector<VkClearValue> clearValues = {colorBufferClearValue};
+    depthBufferClearValue.depthStencil = {1,0};
+    std::vector<VkClearValue> clearValues = {colorBufferClearValue,depthBufferClearValue};
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -450,7 +461,7 @@ int main() {
             ImGuiUpdate();
             ImGui::Render();
 
-            std::vector<VkImageView> framebufferAttachments = {swapchainImageViews[swapchainImageIndex]};
+            std::vector<VkImageView> framebufferAttachments = {swapchainImageViews[swapchainImageIndex],depthBufferView};
             currentFrame.frameBuffer = vk::createFramebuffer(vkDevice, vk::framebufferCreateInfo(0, defaultRenderPass, framebufferAttachments,
                                                                                                  presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 1));
             VkRenderPassBeginInfo defaultRenderPassBeginInfo = vk::renderPassBeginInfo(defaultRenderPass, currentFrame.frameBuffer,
