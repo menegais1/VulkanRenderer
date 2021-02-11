@@ -331,18 +331,24 @@ int main() {
         unsigned char *result = stbi_load(FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_baseColor.jpeg").c_str(), &width, &height, &channels, 0);
         //unsigned char *result = stbi_load(FileLoader::getPath("Resources/cat.bmp").c_str(), &width, &height, &channels, 0);
 
-        float *convertedResult = new float[width * height * channels];
-        for (int i = 0; i < width * height; i++) {
-            for (int j = 0; j < channels; j++) {
-                convertedResult[(i * channels) + j] = result[(i * channels) + j] / 255.0;
+        assert(channels == 3 && "Expected three channels for the texture conversion from RGB32 to RGBA32");
+
+        int expectedChannels = 4;
+        auto *convertedResult = new float[width * height * expectedChannels];
+        for (int i = 0; i < width * height; i++)
+        {
+            for (int j = 0; j < channels; j++)
+            {
+                convertedResult[(i * expectedChannels) + j] = result[(i * channels) + j] / 255.0f;
             }
+            convertedResult[(i * expectedChannels) + (expectedChannels - 1)] = 1.0f; // Opaque
         }
         std::cout << "Loaded converted image " << convertedResult[40] << " " << convertedResult[41] << " " << convertedResult[42] << " " << convertedResult[43] << std::endl;
         std::cout << "Loaded original image " << (unsigned int) result[40] << " " << (unsigned int) result[41] << " " << (unsigned int) result[42] << " " << (unsigned int) result[43] << std::endl;
         std::cout << "w:" << width << " h:" << height << " c:" << channels << std::endl;
-        albedo = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32_SFLOAT,
+        albedo = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                vk::extent3D(width, height, 1), 1, 1, VK_SAMPLE_COUNT_1_BIT,
-                                                               VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                               VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                                                                VK_SHARING_MODE_CONCURRENT, graphicsAndTransferQueues, VK_IMAGE_LAYOUT_UNDEFINED));
         std::cout << "Texture loaded" << std::endl;
         VkMemoryRequirements requirements = vk::getImageMemoryRequirements(vkDevice, albedo);
@@ -350,7 +356,7 @@ int main() {
         vkBindImageMemory(vkDevice, albedo, memory.vkDeviceMemory, memory.vkOffset);
         testImageView = vk::createImageView(vkDevice,
                                             vk::imageViewCreateInfo(albedo, VK_IMAGE_VIEW_TYPE_2D,
-                                                                    VK_FORMAT_R32G32B32_SFLOAT,
+                                                                    VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                     {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
                                                                      VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
                                                                     vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT,
@@ -374,7 +380,7 @@ int main() {
                                  0, nullptr, 1, &transferSrcMemoryBarrier);
         });
 
-        hostDeviceTransfer.transferImageFromBuffer(width, height, channels, 4, convertedResult, albedo, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        hostDeviceTransfer.transferImageFromBuffer(width, height, expectedChannels, sizeof(float), convertedResult, albedo, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         commandBuffer.submitOneTime({}, {}, &waitDstFlags, [&albedo](VkCommandBuffer commandBuffer) {
