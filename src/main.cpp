@@ -33,9 +33,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "../Dependencies/stb/stb_image.h"
 #include "Refactoring/CommandBuffer.h"
+#include "Models/ObjectLoader.h"
 
-int const WIDTH = 500;
-int const HEIGHT = 500;
+int const WIDTH = 1200;
+int const HEIGHT = 720;
 
 void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods) {
 
@@ -47,14 +48,6 @@ void mouseButton(GLFWwindow *window, int button, int action, int modifier) {
 void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
 
 }
-
-struct VertexInput {
-    glm::vec3 position;
-    glm::vec3 normal;
-    glm::vec2 uv;
-
-    VertexInput(const glm::vec3 &position, const glm::vec3 &normal, const glm::vec2 &uv) : position(position), normal(normal), uv(uv) {}
-};
 
 struct Uniform {
     glm::mat4 model;
@@ -121,41 +114,6 @@ VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo p
     VkRenderPassCreateInfo defaultRenderPassCreateInfo = vk::renderPassCreateInfo(attachments, dependencies,
                                                                                   subpasses);
     return vk::createRenderPass(vkDevice, vk::renderPassCreateInfo(attachments, dependencies, subpasses));
-}
-
-// Todo: Export to another class
-void loadObjModel(const std::string &inputFile, std::vector<VertexInput> &vertexInputs, std::vector<uint32_t> &indexVector) {
-    tinyobj::ObjReader reader;
-    if (!reader.ParseFromFile(inputFile)) {
-        if (!reader.Error().empty()) {
-            std::cerr << "TinyObjReader: " << reader.Error();
-        }
-        exit(1);
-    }
-
-    if (!reader.Warning().empty()) {
-        std::cout << "TinyObjReader: " << reader.Warning();
-    }
-
-    auto &attrib = reader.GetAttrib();
-    auto &shapes = reader.GetShapes();
-    auto &primaryMesh = shapes[0]; /* Fetch the first shape */
-    std::cout << "Loading model: " << primaryMesh.name << std::endl;
-    for (auto &index : primaryMesh.mesh.indices) {
-        glm::vec3 pos = {attrib.vertices[3 * index.vertex_index + 0],
-                         attrib.vertices[3 * index.vertex_index + 1],
-                         attrib.vertices[3 * index.vertex_index + 2]};
-
-        glm::vec2 texCoord = {attrib.texcoords[2 * index.texcoord_index + 0],
-                              1.0 - attrib.texcoords[2 * index.texcoord_index + 1]};
-
-        glm::vec3 normal = {attrib.normals[3 * index.normal_index + 0],
-                            attrib.normals[3 * index.normal_index + 1],
-                            attrib.normals[3 * index.normal_index + 2]};
-        vertexInputs.emplace_back(pos, normal, texCoord);
-        indexVector.push_back(indexVector.size());
-    }
-    std::cout << primaryMesh.name << " loaded!" << std::endl;
 }
 
 void ImGuiUpdate() {
@@ -225,13 +183,10 @@ int main() {
     VkRenderPass imGuiRenderPass = VulkanGui::ImGuiCreateRenderPass(vkDevice, presentationEngineInfo);
     // Pipeline Creation
     {
-        VkVertexInputBindingDescription vertexInputBindingDescription = vk::vertexInputBindingDescription(0, sizeof(VertexInput), VK_VERTEX_INPUT_RATE_VERTEX);
-        VkVertexInputAttributeDescription attributeDescriptionPosition = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 0, offsetof(VertexInput, position));
-        VkVertexInputAttributeDescription attributeDescriptionNormal = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 1, offsetof(VertexInput, normal));
-        VkVertexInputAttributeDescription attributeDescriptionUv = vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32_SFLOAT, 2, offsetof(VertexInput, uv));
-        std::vector<VkVertexInputBindingDescription> bindingsDescriptions = {vertexInputBindingDescription};
-        std::vector<VkVertexInputAttributeDescription> attributeDescriptions = {attributeDescriptionPosition, attributeDescriptionNormal, attributeDescriptionUv};
-        VkPipelineVertexInputStateCreateInfo vertexInputState = vk::pipelineVertexInputStateCreateInfo(bindingsDescriptions, attributeDescriptions);
+        auto bindingDescriptions = PnuVertexInput::getInputBindingDescription();
+        auto attributeDescriptions = PnuVertexInput::getInputAttributeDescription();
+
+        VkPipelineVertexInputStateCreateInfo vertexInputState = vk::pipelineVertexInputStateCreateInfo(bindingDescriptions, attributeDescriptions);
 
         VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = vk::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
         VkPipelineRasterizationStateCreateInfo rasterizationState = vk::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT,
@@ -320,11 +275,11 @@ int main() {
     vk::HostDeviceTransfer hostDeviceTransfer = vk::HostDeviceTransfer(vkDevice, transferQueue);
 
 
-    std::vector<VertexInput> vertexInputs;
+    std::vector<PnuVertexInput> vertexInputs;
     std::vector<uint32_t> indexVector;
-    loadObjModel(FileLoader::getPath("Models/DamagedHelmet/DamagedHelmet.obj"), vertexInputs, indexVector);
+    ObjectLoader::loadPnuModel(FileLoader::getPath("Models/DamagedHelmet/DamagedHelmet.obj"), vertexInputs, indexVector);
 
-    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(VertexInput) * vertexInputs.size(), graphicsAndTransferQueues,
+    vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(PnuVertexInput) * vertexInputs.size(), graphicsAndTransferQueues,
                                          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_CONCURRENT, 0,
                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     hostDeviceTransfer.transferBuffer(vertexBuffer.size, vertexInputs.data(), vertexBuffer);
