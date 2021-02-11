@@ -40,7 +40,8 @@ void vk::HostDeviceTransfer::transferBuffer(uint32_t dataSize, void *data, vk::B
 }
 
 void vk::HostDeviceTransfer::transferImageFromBuffer(uint32_t width, uint32_t height, uint32_t channels, uint32_t bytesPerChannel,
-                                                     void *data, VkImage dstImage, VkImageLayout dstImageLayout) {
+                                                     void *data, VkImage dstImage, VkImageLayout dstImageLayout)
+{
     vk::CommandBufferUtils::waitForFences(vkDevice, {transferCompleted}, true);
     uint32_t dataSize = width * height * channels * bytesPerChannel;
     if (dataSize > stagingBuffer.size)
@@ -73,7 +74,8 @@ void vk::HostDeviceTransfer::allocateStagingBuffer(VkDeviceSize size) {
 
 }
 
-void vk::HostDeviceTransfer::submitOneTimeTransferBuffer(std::function<void(VkCommandBuffer)> callback) {
+void vk::HostDeviceTransfer::submitOneTimeTransferBuffer(const std::function<void(VkCommandBuffer)>& callback) const
+{
     VkPipelineStageFlags waitDstStageFlags = VK_PIPELINE_STAGE_TRANSFER_BIT;
     vk::CommandBufferUtils::beginCommandBuffer(vkDevice, transferCommandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, {transferCompleted}, true);
     {

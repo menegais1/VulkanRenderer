@@ -6,8 +6,8 @@
 #include "CreateInfoHelpers.h"
 #include "VulkanCreateFunctions.h"
 
-void vk::CommandBufferUtils::beginCommandBuffer(VkDevice vkDevice, VkCommandBuffer commandBuffer,
-                                                VkCommandBufferUsageFlags flags, std::vector<VkFence> fences,
+void vk::CommandBufferUtils::beginCommandBuffer(const VkDevice& vkDevice, const VkCommandBuffer& commandBuffer,
+                                                VkCommandBufferUsageFlags flags, const std::vector<VkFence>& fences,
                                                 bool resetFences) {
     VkCommandBufferBeginInfo bufferBegin = vk::commandBufferBeginInfo(flags);
     waitForFences(vkDevice, fences, resetFences);
@@ -16,8 +16,8 @@ void vk::CommandBufferUtils::beginCommandBuffer(VkDevice vkDevice, VkCommandBuff
 
 void vk::CommandBufferUtils::submitCommandBuffer(VkQueue queue,
                                                  VkCommandBuffer commandBuffer,
-                                                 std::vector<VkSemaphore> waitSemaphores,
-                                                 std::vector<VkSemaphore> signalSemaphores,
+                                                 const std::vector<VkSemaphore>& waitSemaphores,
+                                                 const std::vector<VkSemaphore>& signalSemaphores,
                                                  VkPipelineStageFlags *waitDstStageFlags, VkFence fence) {
     vk::VK_ASSERT(vkEndCommandBuffer(commandBuffer));
     std::vector<VkCommandBuffer> submitBuffers = {commandBuffer};
@@ -25,7 +25,7 @@ void vk::CommandBufferUtils::submitCommandBuffer(VkQueue queue,
     vk::VK_ASSERT(vkQueueSubmit(queue, 1, &transferSubmitInfo, fence));
 }
 
-void vk::CommandBufferUtils::waitForFences(const VkDevice vkDevice, std::vector<VkFence> fences, bool resetFences) {
+void vk::CommandBufferUtils::waitForFences(const VkDevice& vkDevice, const std::vector<VkFence>& fences, bool resetFences) {
     if (!fences.empty()) {
         vk::VK_ASSERT(vkWaitForFences(vkDevice, fences.size(), fences.data(), VK_TRUE, UINT64_MAX));
         if (resetFences)

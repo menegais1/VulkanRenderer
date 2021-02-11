@@ -19,7 +19,8 @@ vk::CommandBuffer::CommandBuffer() {
 }
 
 void vk::CommandBuffer::submitOneTime(std::vector<VkSemaphore> waitSemaphores, std::vector<VkSemaphore> signalSemaphores,
-                                      VkPipelineStageFlags *waitDstStageFlags, std::function<void(VkCommandBuffer)> callback) {
+                                      VkPipelineStageFlags *waitDstStageFlags, const std::function<void(VkCommandBuffer)>& callback) const
+{
     vk::CommandBufferUtils::beginCommandBuffer(vkDevice, commandBuffer, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, {fence}, true);
     {
         callback(commandBuffer);

@@ -20,9 +20,9 @@ namespace vk {
         /*
          * Begin a command buffer and wait for fences, if any provided, reset fences automatically
          */
-        static void beginCommandBuffer(const VkDevice vkDevice, VkCommandBuffer commandBuffer,
+        static void beginCommandBuffer(const VkDevice& vkDevice, const VkCommandBuffer& commandBuffer,
                                        VkCommandBufferUsageFlags flags,
-                                       std::vector<VkFence> fence = std::vector<VkFence>(0),
+                                       const std::vector<VkFence>& fence = std::vector<VkFence>(0),
                                        bool resetFences = true);
 
         /*
@@ -31,12 +31,12 @@ namespace vk {
         static void
         submitCommandBuffer(VkQueue queue,
                             VkCommandBuffer commandBuffer,
-                            std::vector<VkSemaphore> waitSemaphores,
-                            std::vector<VkSemaphore> signalSemaphores,
+                            const std::vector<VkSemaphore>& waitSemaphores,
+                            const std::vector<VkSemaphore>& signalSemaphores,
                             VkPipelineStageFlags *waitDstStageFlags, VkFence fence);
 
         static void
-        waitForFences(const VkDevice vkDevice, std::vector<VkFence> fences, bool resetFences = true);
+        waitForFences(const VkDevice& vkDevice, const std::vector<VkFence>& fences, bool resetFences = true);
     };
 
 }

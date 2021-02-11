@@ -19,11 +19,9 @@
 #include "AutoShaders/AutoShaders.h"
 #include "VulkanGui.h"
 #include "MemoryManagement/VMA.h"
-#include "Refactoring/Buffer.h"
 #include "Refactoring/Queue.h"
 #include "Refactoring/HostDeviceTransfer.h"
 #include "tiny_obj_loader.h"
-#include "Refactoring/Texture2D/Image2D.h"
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 #include <cstring>
@@ -34,6 +32,8 @@
 #include "../Dependencies/stb/stb_image.h"
 #include "Refactoring/CommandBuffer.h"
 #include "Models/ObjectLoader.h"
+#include "Resources/ResourcesManager.h"
+#include "Textures/Texture.h"
 
 int const WIDTH = 1200;
 int const HEIGHT = 720;
@@ -127,7 +127,7 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    Uniform uniform(glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+    Uniform uniform(glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
                     glm::lookAt(glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
                     glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f));
     uniform.projection[1][1] *= -1;
@@ -157,14 +157,11 @@ int main() {
     vk::Queue presentationQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.presentationFamily, 0);
     vk::Queue transferQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.transferFamily, 0);
 
+    ResourcesManager manager(vkDevice);
 
-    // CREATE DESCRIPTOR SETS LAYOUT
-    VkDescriptorSetLayoutBinding textureDescriptorSetBinding = vk::descriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT);
-    VkDescriptorSetLayoutBinding uniformDescriptorSetBinding = vk::descriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT);
-    std::vector<VkDescriptorSetLayoutBinding> descriptorBindings = {textureDescriptorSetBinding, uniformDescriptorSetBinding};
-    auto descriptorSetLayout = vk::createDescriptorSetLayout(vkDevice, vk::descriptorSetLayoutCreateInfo(descriptorBindings));
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {descriptorSetLayout};
-    // END
+    manager.addTextureSamplerLayout();
+    manager.addUniformBufferLayout();
+    auto descriptorSetLayouts = manager.commitDescriptorBindings();
 
     VkPipelineLayout pipelineLayout;
     std::vector<uint32_t> graphicsQueueList = {graphicsQueue.queueIndex};
@@ -290,83 +287,11 @@ int main() {
 
     vk::CommandBuffer commandBuffer = vk::CommandBuffer(vkDevice, graphicsQueue, graphicsPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-    VkImage albedo;
-    VkImageView testImageView;
-    VkSampler testSampler;
-    {
-        int width, height, channels = 0;
-        unsigned char *result = stbi_load(FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_baseColor.jpeg").c_str(), &width, &height, &channels, 0);
-        //unsigned char *result = stbi_load(FileLoader::getPath("Resources/cat.bmp").c_str(), &width, &height, &channels, 0);
+    Texture albedo(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_baseColor.jpeg"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
 
-        assert(channels == 3 && "Expected three channels for the texture conversion from RGB32 to RGBA32");
+    auto descriptorPool = manager.createDescriptorPools(renderFramesAmount);
 
-        int expectedChannels = 4;
-        auto *convertedResult = new float[width * height * expectedChannels];
-        for (int i = 0; i < width * height; i++) {
-            for (int j = 0; j < channels; j++) {
-                convertedResult[(i * expectedChannels) + j] = result[(i * channels) + j] / 255.0f;
-            }
-            convertedResult[(i * expectedChannels) + (expectedChannels - 1)] = 1.0f; // Opaque
-        }
-        std::cout << "Loaded converted image " << convertedResult[40] << " " << convertedResult[41] << " " << convertedResult[42] << " " << convertedResult[43] << std::endl;
-        std::cout << "Loaded original image " << (unsigned int) result[40] << " " << (unsigned int) result[41] << " " << (unsigned int) result[42] << " " << (unsigned int) result[43] << std::endl;
-        std::cout << "w:" << width << " h:" << height << " c:" << channels << std::endl;
-        albedo = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                               vk::extent3D(width, height, 1), 1, 1, VK_SAMPLE_COUNT_1_BIT,
-                                                               VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                               VK_SHARING_MODE_CONCURRENT, graphicsAndTransferQueues, VK_IMAGE_LAYOUT_UNDEFINED));
-        std::cout << "Texture loaded" << std::endl;
-        VkMemoryRequirements requirements = vk::getImageMemoryRequirements(vkDevice, albedo);
-        AllocationBlock memory = VMA::getInstance().vmalloc(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vkBindImageMemory(vkDevice, albedo, memory.vkDeviceMemory, memory.vkOffset);
-        testImageView = vk::createImageView(vkDevice,
-                                            vk::imageViewCreateInfo(albedo, VK_IMAGE_VIEW_TYPE_2D,
-                                                                    VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                                    {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
-                                                                     VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
-                                                                    vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                                              0, 1, 0, 1)));
-        VkSamplerCreateInfo samplerCreateInfo = vk::samplerCreateInfo();
-        samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerCreateInfo.compareEnable = VK_FALSE;
-        samplerCreateInfo.anisotropyEnable = VK_FALSE;
-        samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        testSampler = vk::createSampler(vkDevice, samplerCreateInfo);
-
-        hostDeviceTransfer.submitOneTimeTransferBuffer([&albedo](VkCommandBuffer transferBuffer) {
-            VkImageMemoryBarrier transferSrcMemoryBarrier = vk::imageMemoryBarrier(0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                                                                                   albedo, vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0,
-                                                                                                                     1, 0, 1));
-            vkCmdPipelineBarrier(transferBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
-                                 0, nullptr,
-                                 0, nullptr, 1, &transferSrcMemoryBarrier);
-        });
-
-        hostDeviceTransfer.transferImageFromBuffer(width, height, expectedChannels, sizeof(float), convertedResult, albedo, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-        VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        commandBuffer.submitOneTime({}, {}, &waitDstFlags, [&albedo](VkCommandBuffer commandBuffer) {
-            VkImageMemoryBarrier imageReadMemoryBarrier = vk::imageMemoryBarrier(VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                                                                                 albedo, vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT, 0,
-                                                                                                                   1, 0, 1));
-            vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
-                                 0, nullptr,
-                                 0, nullptr, 1, &imageReadMemoryBarrier);
-        });
-
-    }
-
-    // CREATE DESCRIPTORS POOLS
-    VkDescriptorPoolSize textureDescriptorPoolSize = vk::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, renderFramesAmount);
-    VkDescriptorPoolSize uniformDescriptorPoolSize = vk::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, renderFramesAmount);
-    std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {textureDescriptorPoolSize, uniformDescriptorPoolSize};
-    VkDescriptorPool descriptorPool = vk::createDescriptorPool(vkDevice, vk::descriptorPoolCreateInfo(descriptorPoolSizes, renderFramesAmount));
-
-    // END
+    //Todo: Move to Descriptor manager
     //CREATE AND UPDATE DESCRIPTOR SETS
 
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo = vk::descriptorSetAllocateInfo(descriptorPool, descriptorSetLayouts);
@@ -376,7 +301,7 @@ int main() {
         std::vector<VkWriteDescriptorSet> descriptorWriteSet{};
 
         /* Texture */
-        VkDescriptorImageInfo vkTextureImageInfo = vk::descriptorImageInfo(testSampler, testImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        VkDescriptorImageInfo vkTextureImageInfo = vk::descriptorImageInfo(albedo.sampler, albedo.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         std::vector<VkDescriptorImageInfo> descriptorImageInfos = {vkTextureImageInfo};
         VkWriteDescriptorSet textureDescriptorSetWrite = vk::writeDescriptorSet(descriptorImageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorSet, 0, 0);
         descriptorWriteSet.push_back(textureDescriptorSetWrite);

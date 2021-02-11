@@ -28,7 +28,7 @@ namespace vk {
         void transferImageFromBuffer(uint32_t width, uint32_t height, uint32_t channels, uint32_t bytesPerChannel,
                                      void *data, VkImage dstImage, VkImageLayout dstImageLayout);
 
-        void submitOneTimeTransferBuffer(std::function<void(VkCommandBuffer transferBuffer)> callback);
+        void submitOneTimeTransferBuffer(const std::function<void(VkCommandBuffer transferBuffer)>& callback) const;
     private:
         VkDevice vkDevice;
         PhysicalDeviceInfo physicalDeviceInfo;

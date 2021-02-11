@@ -34,7 +34,7 @@ namespace vk {
 //                           VkPipelineStageFlags *waitDstStageFlags, std::function<void(VkCommandBuffer)> callback);
 
         void submitOneTime(std::vector<VkSemaphore> waitSemaphores, std::vector<VkSemaphore> signalSemaphores,
-                           VkPipelineStageFlags *waitDstStageFlags, std::function<void(VkCommandBuffer)> callback);
+                           VkPipelineStageFlags *waitDstStageFlags, const std::function<void(VkCommandBuffer)>& callback) const;
 
 //        void waitForFences(const std::vector<VkFence> &fences, bool resetFences);
     };
