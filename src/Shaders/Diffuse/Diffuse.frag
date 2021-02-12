@@ -9,14 +9,15 @@ layout (location = 4) in vec3 in_tangent;
 layout(binding = 0) uniform UniformBufferObject
 {
     bool useNormalMapping;
-    vec3 viewPosition;
     vec3 lightPosition;
+    vec3 viewPosition;
     vec4 lightColor;
     mat4 model;
     mat4 view;
     mat4 projection;
     mat4 invModel;
 } uniformObject;
+
 layout(binding = 1) uniform sampler2D albedo;
 layout(binding = 2) uniform sampler2D normal;
 layout(binding = 3) uniform sampler2D metallicRoughness;

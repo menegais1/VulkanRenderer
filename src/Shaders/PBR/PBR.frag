@@ -7,8 +7,8 @@ layout (location = 3) in vec3 in_tangent;
 layout(binding = 0) uniform UniformBufferObject
 {
     bool useNormalMapping;
-    vec3 viewPosition;
     vec3 lightPosition;
+    vec3 viewPosition;
     vec4 lightColor;
     mat4 model;
     mat4 view;
@@ -82,7 +82,7 @@ void main()
 
     vec3 reflectance = (kD * albedo / PI + specular) * radiance * normalLightDot;
 
-    vec3 ambient = vec3(0.00f) * albedo * ao;
+    vec3 ambient = vec3(0.01f) * albedo * ao;
     vec3 color = ambient + reflectance;
 
     /* Gamma correction */

@@ -41,9 +41,9 @@ int const HEIGHT = 720;
 struct Uniform
 {
     bool normalMapping;
-    alignas(16) glm::vec3 lightPosition;
+    alignas(16) glm::vec3 lightPosition = glm::vec3(1.0, 1.0, 1.0);
     alignas(16) glm::vec3 viewPosition;
-    alignas(16) glm::vec4 lightColor;
+    alignas(16) glm::vec4 lightColor = glm::vec4(1.0, 1.0, 1.0, 1.0);
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
@@ -53,8 +53,8 @@ struct Uniform
 struct Camera
 {
     float speed = 2;
-    glm::vec3 eye = glm::vec3(0, 0, 1);
-    glm::vec3 center = glm::vec3(1, 0, 0);
+    glm::vec3 eye = glm::vec3(0, 0, -5);
+    glm::vec3 center = glm::vec3(0, 0, 0);
     glm::vec3 up = glm::vec3(0, 1, 0);
     glm::vec2 angle;
     bool isDragging;
@@ -206,9 +206,9 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame)
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    ImGui::DragFloat3("Light Position", (float*)  &uniform.lightPosition);
+    ImGui::DragFloat3("Light Position", (float*)  &uniform.lightPosition, 0.1f);
     ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
-    ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a);
+    ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a, 0.1f);
     ImGui::Checkbox("Use normal mapping", &uniform.normalMapping);
     uniform.viewPosition = camera.eye;
     uniform.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -414,8 +414,6 @@ int main() {
             };
     vkUpdateDescriptorSets(vkDevice, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 
-    /* Configure Camera */
-    camera.positionCameraCenter();
 
     VkClearValue colorBufferClearValue;
     VkClearValue depthBufferClearValue;

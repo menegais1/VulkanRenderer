@@ -8,8 +8,8 @@ layout (location = 3) in vec3 in_tangent;
 layout(binding = 0) uniform UniformBufferObject
 {
     bool useNormalMapping;
-    vec3 viewPosition;
     vec3 lightPosition;
+    vec3 viewPosition;
     vec4 lightColor;
     mat4 model;
     mat4 view;
