@@ -1,6 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define TINYOBJLOADER_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 
@@ -49,15 +48,16 @@ void mouseButton(GLFWwindow *window, int button, int action, int modifier) {
 void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
 
 }
-
 struct Uniform
 {
+    glm::vec3 lightPosition;
+    alignas(16) glm::vec3 viewPosition;
+    alignas(16) glm::vec4 lightColor;
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
     glm::mat4 invModel;
-    glm::vec4 viewPosition;
-};
+} uniform;
 
 std::vector<char> loadShader(const std::string &filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::in | std::ios::ate);
@@ -118,12 +118,8 @@ VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo p
     return vk::createRenderPass(vkDevice, vk::renderPassCreateInfo(attachments, dependencies, subpasses));
 }
 
-void ImGuiUpdate() {
-    ImGui::ShowDemoWindow();
-}
-
-
-void updateUniformBuffer(const VkDevice &device, RenderFrame frame) {
+void updateUniformBuffer(const VkDevice &device, RenderFrame frame)
+{
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -131,14 +127,14 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame) {
 
     glm::vec3 eye = glm::vec3(0.0f, 0.0f, -5.0f);
 
-    Uniform uniform
-    {
-        glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
-        glm::lookAt(eye, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
-        glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f),
-        glm::mat4x4(),
-        glm::vec4(eye, 1.0),
-    };
+    ImGui::DragFloat3("Light Position", (float*)  &uniform.lightPosition);
+    ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
+    ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a);
+
+    uniform.viewPosition = eye;
+    uniform.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    uniform.view = glm::lookAt(eye, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    uniform.projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f);
     uniform.invModel = glm::inverse(uniform.model);
     uniform.projection[1][1] *= -1;
 

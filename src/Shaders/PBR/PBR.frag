@@ -3,12 +3,15 @@ layout (location = 0) in vec3 in_normal;
 layout (location = 1) in vec2 in_uv;
 layout (location = 2) in vec3 in_pos;
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(binding = 0) uniform UniformBufferObject
+{
+    vec3 viewPosition;
+    vec3 lightPosition;
+    vec4 lightColor;
     mat4 model;
     mat4 view;
     mat4 projection;
     mat4 invModel;
-    vec4 viewPosition;
 } uniformObject;
 
 layout(binding = 1) uniform sampler2D albedoSampler;
@@ -27,14 +30,15 @@ vec3 schlickFresnel(float cosTheta, vec3 F0);
 
 void main()
 {
-    vec3 lightPos = vec3(-1.0f, 1.0f, -1.0f);
     /* Uniform Extraction*/
-    vec3 viewPosition = uniformObject.viewPosition.xyz;
-    vec3 albedo = pow(texture(albedoSampler, in_uv).rgb, vec3(2.2f));
+    vec3 viewPosition = uniformObject.viewPosition;
+    vec3 lightPos = uniformObject.lightPosition;
+    vec3 lightColor = uniformObject.lightColor.xyz * uniformObject.lightColor.w;
 
     /* According to GLTF 2.0 spec: R is Metallic and G is Roughness */
     /* However, I inspected the channels and confirmed my suspicions with blender */
     /* The actual encoding is: R = AO, G = Roughness & B = Metallic*/
+    vec3 albedo = pow(texture(albedoSampler, in_uv).rgb, vec3(2.2f));
     float ao = texture(metallicRoughnessSampler, in_uv).r;
     float roughness = texture(metallicRoughnessSampler, in_uv).g;
     float metallic = texture(metallicRoughnessSampler, in_uv).b;
@@ -48,7 +52,6 @@ void main()
     vec3 lightDir = normalize(lightPos - in_pos);
     vec3 viewDir = normalize(viewPosition - in_pos);
     vec3 halfway = normalize(lightDir + viewDir);
-    vec3 lightColor = vec3(1.0f); // [0, 1] normalized
     float distance = length(lightPos - in_pos);
     float attenuantion = 1.0 / (distance * distance);
     vec3 radiance = lightColor * attenuantion;
@@ -74,12 +77,14 @@ void main()
     vec3 reflectance = (kD * albedo / PI + specular) * radiance * normalLightDot;
 
     vec3 ambient = vec3(0.00f) * albedo * ao;
-    vec3 color = ambient + reflectance + emissive;
+    vec3 color = ambient + reflectance;
 
     /* Gamma correction */
     color = color / (color + vec3(1.0f));
     color = pow(color, vec3(1.0f/2.2f));
 
+    /* Emissive is added after gamma correction*/
+    color += emissive;
     outFragColor = vec4(color, 1.0);
 }
 

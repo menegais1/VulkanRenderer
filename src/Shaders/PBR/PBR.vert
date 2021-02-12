@@ -4,12 +4,15 @@ layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
 layout (location = 2) in vec2 in_uv;
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(binding = 0) uniform UniformBufferObject
+{
+    vec3 viewPosition;
+    vec3 lightPosition;
+    vec4 lightColor;
     mat4 model;
     mat4 view;
     mat4 projection;
     mat4 invModel;
-    vec4 viewPosition;
 } uniformObject;
 
 layout(location = 0) out vec3 out_normal;
