@@ -5,9 +5,9 @@
 #include <tiny_obj_loader.h>
 #include <iostream>
 #include "ObjectLoader.h"
-void ObjectLoader::loadPnuModel(const std::string &inputFile, std::vector <PnuVertexInput> &vertexInputs,
-                                std::vector <uint32_t> &indexVector)
-{
+
+void ObjectLoader::loadPnuModel(const std::string &inputFile, std::vector<PnuVertexInput> &vertexInputs,
+                                std::vector<uint32_t> &indexVector) {
     tinyobj::ObjReader reader;
     if (!reader.ParseFromFile(inputFile)) {
         if (!reader.Error().empty()) {
@@ -24,6 +24,8 @@ void ObjectLoader::loadPnuModel(const std::string &inputFile, std::vector <PnuVe
     auto &shapes = reader.GetShapes();
     auto &primaryMesh = shapes[0]; /* Fetch the first shape */
     std::cout << "Loading model: " << primaryMesh.name << std::endl;
+    vertexInputs.resize(attrib.vertices.size());
+    indexVector.resize(primaryMesh.mesh.indices.size());
     for (auto &index : primaryMesh.mesh.indices) {
         glm::vec3 pos = {attrib.vertices[3 * index.vertex_index + 0],
                          attrib.vertices[3 * index.vertex_index + 1],
@@ -35,8 +37,8 @@ void ObjectLoader::loadPnuModel(const std::string &inputFile, std::vector <PnuVe
         glm::vec3 normal = {attrib.normals[3 * index.normal_index + 0],
                             attrib.normals[3 * index.normal_index + 1],
                             attrib.normals[3 * index.normal_index + 2]};
-        vertexInputs.emplace_back(pos, normal, texCoord);
-        indexVector.push_back(indexVector.size());
+        vertexInputs[3 * index.vertex_index] = PnuVertexInput(pos, normal, texCoord);
+        indexVector.push_back(3 * index.vertex_index);
     }
     std::cout << primaryMesh.name << " loaded!" << std::endl;
 }

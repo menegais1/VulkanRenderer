@@ -18,6 +18,9 @@ std::vector<VkVertexInputAttributeDescription> PnuVertexInput::getInputAttribute
     {
         vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 0, offsetof(PnuVertexInput, position)),
         vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 1, offsetof(PnuVertexInput, normal)),
-        vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32_SFLOAT, 2, offsetof(PnuVertexInput, uv))
+        vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32_SFLOAT, 2, offsetof(PnuVertexInput, uv)),
+        vk::vertexInputAttributeDescription(0, VK_FORMAT_R32G32B32_SFLOAT, 3, offsetof(PnuVertexInput, tangent))
     };
 }
+
+PnuVertexInput::PnuVertexInput() {}
