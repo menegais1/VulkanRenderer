@@ -38,19 +38,10 @@
 int const WIDTH = 1200;
 int const HEIGHT = 720;
 
-void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods) {
-
-}
-
-void mouseButton(GLFWwindow *window, int button, int action, int modifier) {
-}
-
-void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
-
-}
 struct Uniform
 {
-    glm::vec3 lightPosition;
+    bool normalMapping;
+    alignas(16) glm::vec3 lightPosition;
     alignas(16) glm::vec3 viewPosition;
     alignas(16) glm::vec4 lightColor;
     glm::mat4 model;
@@ -58,6 +49,94 @@ struct Uniform
     glm::mat4 projection;
     glm::mat4 invModel;
 } uniform;
+
+struct Camera
+{
+    float speed = 2;
+    glm::vec3 eye = glm::vec3(0, 0, 1);
+    glm::vec3 center = glm::vec3(1, 0, 0);
+    glm::vec3 up = glm::vec3(0, 1, 0);
+    glm::vec2 angle;
+    bool isDragging;
+
+    void positionCameraCenter() {
+        glm::vec3 direction;
+        direction.x = cos(angle.y * PI / 180.0) * cos(angle.x * PI / 180.0);
+        direction.y = sin(angle.x * PI / 180.0);
+        direction.z = sin(angle.y * PI / 180.0) * cos(angle.x * PI / 180.0);
+        center = eye + glm::normalize(direction);
+    }
+} camera;
+
+glm::vec2 lastMousePosition;
+float mouseSensitivity = 0.5;
+
+void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    float moveSpeed = camera.speed * 0.01f;
+
+    glm::vec3 forward = glm::normalize(camera.center - camera.eye);
+    glm::vec3 right = glm::normalize(glm::cross(forward, camera.up));
+    if (key == GLFW_KEY_W) {
+        camera.eye = camera.eye + forward * moveSpeed;
+        camera.center = camera.center + forward * moveSpeed;
+        camera.up = glm::vec3(0, 1, 0);
+
+    } else if (key == GLFW_KEY_S) {
+        camera.eye = camera.eye + forward * -moveSpeed;
+        camera.center = camera.center + forward * -moveSpeed;
+        camera.up = glm::vec3(0, 1, 0);
+    } else if (key == GLFW_KEY_D) {
+        camera.eye = camera.eye + right * moveSpeed;
+        camera.center = camera.center + right * moveSpeed;
+        camera.up = glm::vec3(0, 1, 0);
+
+    } else if (key == GLFW_KEY_A) {
+        camera.eye = camera.eye + right * -moveSpeed;
+        camera.center = camera.center + right * -moveSpeed;
+        camera.up = glm::vec3(0, 1, 0);
+    } else if (key == GLFW_KEY_Q) {
+        camera.eye = camera.eye + glm::vec3(0, 1, 0) * moveSpeed;
+        camera.center = camera.center + glm::vec3(0, 1, 0) * moveSpeed;
+        camera.up = glm::vec3(0, 1, 0);
+
+    } else if (key == GLFW_KEY_E) {
+        camera.eye = camera.eye + glm::vec3(0, 1, 0) * -moveSpeed;
+        camera.center = camera.center + glm::vec3(0, 1, 0) * -moveSpeed;
+        camera.up = glm::vec3(0, 1, 0);
+    }
+}
+
+void mouseButton(GLFWwindow *window, int button, int action, int modifier) {
+    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+        camera.isDragging = true;
+    } else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE) {
+        camera.isDragging = false;
+    }
+}
+
+void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
+    ypos = HEIGHT - ypos;
+    if (camera.isDragging) {
+
+        float xDelta = (xpos - lastMousePosition.x);
+        float yDelta = (ypos - lastMousePosition.y);
+        float xOffset = xDelta * mouseSensitivity;
+        float yOffset = yDelta * mouseSensitivity;
+
+        camera.angle.x += yOffset;
+        camera.angle.y += xOffset;
+
+        if (camera.angle.x >= 89) {
+            camera.angle.x = 89;
+        } else if (camera.angle.x <= -89) {
+            camera.angle.x = -89;
+        }
+
+        camera.positionCameraCenter();
+    }
+    lastMousePosition = glm::vec2(xpos, ypos);
+
+}
 
 void calculateTangents(std::vector<PnuVertexInput> &vector, std::vector<uint32_t> vector1);
 
@@ -127,15 +206,13 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame)
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    glm::vec3 eye = glm::vec3(0.0f, 0.0f, 5.0f);
-
     ImGui::DragFloat3("Light Position", (float*)  &uniform.lightPosition);
     ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
     ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a);
-
-    uniform.viewPosition = eye;
+    ImGui::Checkbox("Use normal mapping", &uniform.normalMapping);
+    uniform.viewPosition = camera.eye;
     uniform.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    uniform.view = glm::lookAt(eye, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    uniform.view = glm::lookAt(camera.eye, camera.center, camera.up);
     uniform.projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f);
     uniform.invModel = glm::inverse(uniform.model);
     uniform.projection[1][1] *= -1;
@@ -216,8 +293,8 @@ int main() {
         float blendConstants[4] = {1, 1, 1, 1};
         std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
         VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.vert.spv"));
-        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.frag.spv"));
+        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.vert.spv"));
+        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.frag.spv"));
         VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
         VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
@@ -337,6 +414,9 @@ int main() {
             };
     vkUpdateDescriptorSets(vkDevice, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 
+    /* Configure Camera */
+    camera.positionCameraCenter();
+
     VkClearValue colorBufferClearValue;
     VkClearValue depthBufferClearValue;
     colorBufferClearValue.color = {0.04f, 0.04f, 0.04f, 1};
@@ -428,7 +508,8 @@ void calculateTangents(std::vector<PnuVertexInput> &vertexInputs, std::vector<ui
         vertexInputs[vertexIndices[i + 1]].tangent += tangent;
         vertexInputs[vertexIndices[i + 2]].tangent += tangent;
     }
-    for (int i = 0; i < vertexInputs.size(); i++) {
-        vertexInputs[i].tangent = glm::normalize(vertexInputs[i].tangent);
+    for (auto & vertexInput : vertexInputs)
+    {
+        vertexInput.tangent = glm::normalize(vertexInput.tangent);
     }
 }

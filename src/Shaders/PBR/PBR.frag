@@ -2,9 +2,11 @@
 layout (location = 0) in vec3 in_normal;
 layout (location = 1) in vec2 in_uv;
 layout (location = 2) in vec3 in_pos;
+layout (location = 3) in vec3 in_tangent;
 
 layout(binding = 0) uniform UniformBufferObject
 {
+    bool useNormalMapping;
     vec3 viewPosition;
     vec3 lightPosition;
     vec4 lightColor;
@@ -27,9 +29,13 @@ float ggxDistribution(vec3 normal, vec3 halfway, float roughness);
 float ggxSchlickGeometry(float normalViewDot, float roughness);
 float smithGeometry(vec3 normal, vec3 view, vec3 light, float roughness);
 vec3 schlickFresnel(float cosTheta, vec3 F0);
+vec3 getPerturbedNormal();
 
 void main()
 {
+    /* Normal calculation */
+    vec3 normal = uniformObject.useNormalMapping ? getPerturbedNormal() : in_normal;
+
     /* Uniform Extraction*/
     vec3 viewPosition = uniformObject.viewPosition;
     vec3 lightPos = uniformObject.lightPosition;
@@ -57,9 +63,9 @@ void main()
     vec3 radiance = lightColor * attenuantion;
 
     /* Cook-Torrance BRDF. I tried moving to aux methods but many calculations are later used */
-    float d = ggxDistribution(in_normal, halfway, roughness);
+    float d = ggxDistribution(normal, halfway, roughness);
     vec3 f = schlickFresnel(max(dot(halfway, viewDir), 0.0f), F0);
-    float g = smithGeometry(in_normal, viewDir, lightDir, roughness);
+    float g = smithGeometry(normal, viewDir, lightDir, roughness);
 
     /* Specular Component */
     vec3 kS = f;
@@ -69,10 +75,10 @@ void main()
     kD *= 1.0f - metallic;
 
     vec3 numerator = d * f * g;
-    float denominator = 4.0f * max(dot(viewDir, in_normal), 0.0) * max(dot(lightDir, in_normal), 0.0);
+    float denominator = 4.0f * max(dot(viewDir, normal), 0.0) * max(dot(lightDir, normal), 0.0);
     vec3 specular = numerator / max(denominator, 0.001f); // Just avoiding zero division
 
-    float normalLightDot = max(dot(in_normal, lightDir), 0.0f);
+    float normalLightDot = max(dot(normal, lightDir), 0.0f);
 
     vec3 reflectance = (kD * albedo / PI + specular) * radiance * normalLightDot;
 
@@ -113,7 +119,16 @@ float smithGeometry(vec3 normal, vec3 view, vec3 light, float roughness)
     float ggx1 = ggxSchlickGeometry(normalLightDot, roughness);
     return ggx1 * ggx2;
 }
+
 vec3 schlickFresnel(float cosTheta, vec3 F0)
 {
     return F0 + (1.0f - F0) * pow(max(1.0f - cosTheta, 0.0f), 5.0f);
+}
+
+vec3 getPerturbedNormal()
+{
+    mat3 TBN = mat3(in_tangent, normalize(cross(in_normal, in_tangent)), in_normal);
+    vec3 sampledNormal = ((texture(normalSampler, in_uv) * 2.0) - 1).xyz;
+    vec3 perturbedNormal = normalize(TBN * sampledNormal);
+    return perturbedNormal;
 }
