@@ -59,6 +59,8 @@ struct Uniform
     glm::mat4 invModel;
 } uniform;
 
+void calculateTangents(std::vector<PnuVertexInput> &vector, std::vector<uint32_t> vector1);
+
 std::vector<char> loadShader(const std::string &filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::in | std::ios::ate);
     if (!file.is_open()) {
@@ -85,7 +87,7 @@ GLFWwindow *setupGLFW() {
     return window;
 }
 
-VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo presentationEngineInfo ){
+VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo presentationEngineInfo) {
     VkAttachmentDescription colorAttachment = vk::attachmentDescription(presentationEngineInfo.format.format,
                                                                         VK_SAMPLE_COUNT_1_BIT,
                                                                         VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -125,7 +127,7 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame)
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    glm::vec3 eye = glm::vec3(0.0f, 0.0f, -5.0f);
+    glm::vec3 eye = glm::vec3(0.0f, 0.0f, 5.0f);
 
     ImGui::DragFloat3("Light Position", (float*)  &uniform.lightPosition);
     ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
@@ -214,8 +216,8 @@ int main() {
         float blendConstants[4] = {1, 1, 1, 1};
         std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
         VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.vert.spv"));
-        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.frag.spv"));
+        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.vert.spv"));
+        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.frag.spv"));
         VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
         VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
@@ -286,7 +288,7 @@ int main() {
     std::vector<PnuVertexInput> vertexInputs;
     std::vector<uint32_t> indexVector;
     ObjectLoader::loadPnuModel(FileLoader::getPath("Models/DamagedHelmet/DamagedHelmet.obj"), vertexInputs, indexVector);
-
+    calculateTangents(vertexInputs, indexVector);
     vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(PnuVertexInput) * vertexInputs.size(), graphicsAndTransferQueues,
                                          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_CONCURRENT, 0,
                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -311,8 +313,7 @@ int main() {
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo = vk::descriptorSetAllocateInfo(descriptorPool, descriptorSetLayouts);
     VkDescriptorSet descriptorSet = vk::allocateDescriptorSets(vkDevice, renderFramesAmount + 1, &vkDescriptorSetAllocateInfo)[0];
 
-    for (auto &renderFrame : renderFrames)
-    {
+    for (auto &renderFrame : renderFrames) {
         std::vector<VkWriteDescriptorSet> descriptorWriteSet{};
 
         /* Uniform Buffers */
@@ -328,19 +329,19 @@ int main() {
     binding++;
 
     std::vector<VkWriteDescriptorSet> descriptorSets =
-    {
-        albedo.getWriteDescriptorSet(binding++, descriptorSet),
-        normal.getWriteDescriptorSet(binding++, descriptorSet),
-        metallicRoughness.getWriteDescriptorSet(binding++, descriptorSet),
-        emissive.getWriteDescriptorSet(binding++, descriptorSet)
-    };
+            {
+                    albedo.getWriteDescriptorSet(binding++, descriptorSet),
+                    normal.getWriteDescriptorSet(binding++, descriptorSet),
+                    metallicRoughness.getWriteDescriptorSet(binding++, descriptorSet),
+                    emissive.getWriteDescriptorSet(binding++, descriptorSet)
+            };
     vkUpdateDescriptorSets(vkDevice, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 
     VkClearValue colorBufferClearValue;
     VkClearValue depthBufferClearValue;
     colorBufferClearValue.color = {0.04f, 0.04f, 0.04f, 1};
-    depthBufferClearValue.depthStencil = {1,0};
-    std::vector<VkClearValue> clearValues = {colorBufferClearValue,depthBufferClearValue};
+    depthBufferClearValue.depthStencil = {1, 0};
+    std::vector<VkClearValue> clearValues = {colorBufferClearValue, depthBufferClearValue};
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -359,7 +360,7 @@ int main() {
             updateUniformBuffer(vkDevice, currentFrame);
             ImGui::Render();
 
-            std::vector<VkImageView> framebufferAttachments = {swapchainImageViews[swapchainImageIndex],depthBufferView};
+            std::vector<VkImageView> framebufferAttachments = {swapchainImageViews[swapchainImageIndex], depthBufferView};
             currentFrame.frameBuffer = vk::createFramebuffer(vkDevice, vk::framebufferCreateInfo(0, defaultRenderPass, framebufferAttachments,
                                                                                                  presentationEngineInfo.extents.width, presentationEngineInfo.extents.height, 1));
             VkRenderPassBeginInfo defaultRenderPassBeginInfo = vk::renderPassBeginInfo(defaultRenderPass, currentFrame.frameBuffer,
@@ -404,4 +405,30 @@ int main() {
     vkDestroyInstance(vkInstance, nullptr);
     glfwDestroyWindow(window);
     glfwTerminate();
+}
+
+//https://bgolus.medium.com/normal-mapping-for-a-triplanar-shader-10bf39dca05a#0576
+//http://www.thetenthplanet.de/archives/1180
+//http://www.aclockworkberry.com/shader-derivative-functions/
+//https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+void calculateTangents(std::vector<PnuVertexInput> &vertexInputs, std::vector<uint32_t> vertexIndices) {
+    // FOR EACH TRIANGLE, CALCULATE THE TANGENT AND STORE THE SUM OF ALL TANGENTS IN THE SAME VERTEX IN A TEMPORARY ARRAY
+    for (int i = 0; i < vertexIndices.size(); i += 3) {
+        PnuVertexInput p0 = vertexInputs[vertexIndices[i]];
+        PnuVertexInput p1 = vertexInputs[vertexIndices[i + 1]];
+        PnuVertexInput p2 = vertexInputs[vertexIndices[i + 2]];
+
+        glm::vec3 e1 = p1.position - p0.position;
+        glm::vec3 e2 = p2.position - p0.position;
+        glm::vec3 n = glm::cross(e1, e2);
+        glm::mat3 A = glm::mat3(e1, e2, n);
+        glm::mat3 AI = glm::inverse(A);
+        glm::vec3 tangent = AI * glm::vec3(p1.uv.x - p0.uv.x, p2.uv.x - p0.uv.x, 0);
+        vertexInputs[vertexIndices[i]].tangent += tangent;
+        vertexInputs[vertexIndices[i + 1]].tangent += tangent;
+        vertexInputs[vertexIndices[i + 2]].tangent += tangent;
+    }
+    for (int i = 0; i < vertexInputs.size(); i++) {
+        vertexInputs[i].tangent = glm::normalize(vertexInputs[i].tangent);
+    }
 }
