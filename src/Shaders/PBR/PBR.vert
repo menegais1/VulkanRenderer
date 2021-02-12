@@ -18,7 +18,7 @@ layout (location = 2) out vec3 out_pos;
 void main()
 {
     out_uv = in_uv;
-    out_normal = normalize(uniformObject.model * vec4(in_normal, 1.0)).xyz;
+    out_normal = normalize(uniformObject.model * vec4(in_normal, 0.0)).xyz;
     out_pos = (uniformObject.model * vec4(in_position, 1.0)).xyz;
     gl_Position = uniformObject.projection * uniformObject.view * uniformObject.model * vec4(in_position, 1.0);
 }

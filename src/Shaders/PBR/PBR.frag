@@ -26,10 +26,11 @@ vec3 schlickFresnel(float cosTheta, vec3 F0);
 
 void main()
 {
-    vec3 lightPos = vec3(-1.0f, 1.0f, -1.0f);
+    vec3 lightPos = vec3(1.0f, 1.0f, 0.0f);
     /* Uniform Extraction*/
     vec3 viewPosition = uniformObject.viewPosition.xyz;
     vec3 albedo = pow(texture(albedoSampler, in_uv).rgb, vec3(2.2f));
+
     /* According to GLTF 2.0 spec: R is Metallic and G is Roughness */
     /* However, I inspected the channels and confirmed my suspicions with blender */
     /* The actual encoding is: R = AO, G = Roughness & B = Metallic*/
@@ -37,8 +38,6 @@ void main()
     float roughness = texture(metallicRoughnessSampler, in_uv).g;
     float metallic = texture(metallicRoughnessSampler, in_uv).b;
     vec3 emissive = texture(emissiveSampler, in_uv).rgb;
-
-    /* Todo: Texture samples */
 
     /* Refractive Index */
     vec3 F0 = vec3(0.04f);
@@ -77,8 +76,8 @@ void main()
     vec3 color = ambient + reflectance;
 
     /* Gamma correction */
-    color = color / (color + vec3(1.0f));
-    color = pow(color, vec3(1.0f/2.2f));
+    //color = color / (color + vec3(1.0f));
+    //color = pow(color, vec3(1.0f/2.2f));
 
     outFragColor = vec4(color + emissive, 1.0);
 }
@@ -88,7 +87,7 @@ float ggxDistribution(vec3 normal, vec3 halfway, float roughness)
     float a = roughness * roughness;
     float normalDotHalf = max(dot(normal, halfway), 0.0f);
     float normalDotHalfSq = normalDotHalf * normalDotHalf;
-    float d = (normalDotHalfSq * (a - 1.0f) + 1.0f);
+    float d = normalDotHalfSq * (a - 1.0f) + 1.0f;
     return a / (PI * d * d);
 }
 
