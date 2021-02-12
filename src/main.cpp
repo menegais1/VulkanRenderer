@@ -129,7 +129,7 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    glm::vec3 eye = glm::vec3(0.0f, 0.0f, 5.0f);
+    glm::vec3 eye = glm::vec3(0.0f, 0.0f, -5.0f);
 
     Uniform uniform
     {
@@ -218,8 +218,8 @@ int main() {
         float blendConstants[4] = {1, 1, 1, 1};
         std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
         VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.vert.spv"));
-        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.frag.spv"));
+        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.vert.spv"));
+        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.frag.spv"));
         VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
         VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 

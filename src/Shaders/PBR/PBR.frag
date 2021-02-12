@@ -7,6 +7,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 projection;
+    mat4 invModel;
     vec4 viewPosition;
 } uniformObject;
 
@@ -26,7 +27,7 @@ vec3 schlickFresnel(float cosTheta, vec3 F0);
 
 void main()
 {
-    vec3 lightPos = vec3(1.0f, 1.0f, 0.0f);
+    vec3 lightPos = vec3(-1.0f, 1.0f, -1.0f);
     /* Uniform Extraction*/
     vec3 viewPosition = uniformObject.viewPosition.xyz;
     vec3 albedo = pow(texture(albedoSampler, in_uv).rgb, vec3(2.2f));
@@ -73,13 +74,13 @@ void main()
     vec3 reflectance = (kD * albedo / PI + specular) * radiance * normalLightDot;
 
     vec3 ambient = vec3(0.00f) * albedo * ao;
-    vec3 color = ambient + reflectance;
+    vec3 color = ambient + reflectance + emissive;
 
     /* Gamma correction */
-    //color = color / (color + vec3(1.0f));
-    //color = pow(color, vec3(1.0f/2.2f));
+    color = color / (color + vec3(1.0f));
+    color = pow(color, vec3(1.0f/2.2f));
 
-    outFragColor = vec4(color + emissive, 1.0);
+    outFragColor = vec4(color, 1.0);
 }
 
 float ggxDistribution(vec3 normal, vec3 halfway, float roughness)

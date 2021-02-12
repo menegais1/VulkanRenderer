@@ -8,6 +8,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 projection;
+    mat4 invModel;
     vec4 viewPosition;
 } uniformObject;
 
