@@ -9,6 +9,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 projection;
+    mat4 invModel;
     float fresnel;
     float geometry;
 } uniformObject;
@@ -28,7 +29,8 @@ void main()
     vec3 ambient = ambientStrength * lightColor;
 
     // diffuse
-    vec3 lightDir = normalize(in_light - in_pos.xyz);
+    vec3 model_light = (uniformObject.invModel * vec4(in_light,1)).xyz;
+    vec3 lightDir = normalize(model_light - in_pos.xyz);
     float diff = max(dot(in_normal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
     outFragColor = vec4(diffuse + ambient, 1.0) * texture(albedo, in_uv);

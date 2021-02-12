@@ -8,6 +8,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 projection;
+    mat4 invModel;
     float fresnel;
     float geometry;
 } uniformObject;
@@ -24,6 +25,6 @@ void main()
     gl_Position = uniformObject.projection * uniformObject.view * uniformObject.model * vec4(in_position, 1.0);
     out_pos = in_position;
 
-    vec3 lightPos = vec3(1.0, -1.0, 1.0);
+    vec3 lightPos = vec3(0,0, 2);
     out_light = lightPos;
 }

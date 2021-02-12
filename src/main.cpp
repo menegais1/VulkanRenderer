@@ -55,6 +55,7 @@ struct Uniform
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
+    glm::mat4 invModel;
     glm::vec4 viewPosition;
 };
 
@@ -128,16 +129,17 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame) {
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    glm::vec3 eye = glm::vec3(0.0f, 0.0f, -5.0f);
+    glm::vec3 eye = glm::vec3(0.0f, 0.0f, 5.0f);
 
     Uniform uniform
     {
         glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
         glm::lookAt(eye, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
         glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f),
+        glm::mat4x4(),
         glm::vec4(eye, 1.0),
     };
-
+    uniform.invModel = glm::inverse(uniform.model);
     uniform.projection[1][1] *= -1;
 
     void *data;
@@ -216,8 +218,8 @@ int main() {
         float blendConstants[4] = {1, 1, 1, 1};
         std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
         VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.vert.spv"));
-        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.frag.spv"));
+        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.vert.spv"));
+        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/Diffuse.frag.spv"));
         VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
         VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
