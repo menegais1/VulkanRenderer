@@ -50,7 +50,7 @@ void main()
     /* The actual encoding is: R = AO, G = Roughness & B = Metallic*/
     vec3 albedo = pow(texture(albedoSampler, in_uv).rgb, vec3(2.2f));
     float roughness = 1.0 - pow(texture(glossinessSampler, in_uv).r, 2.2f);
-    float metallic = 0.0f; // Fixed in spec/gloss workflow
+    float metallic = 0.5f; // Fixed in spec/gloss workflow
 
     /* Refractive Index */
     vec3 F0 = texture(specularSampler, in_uv).xyz;

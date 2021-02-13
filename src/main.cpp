@@ -72,6 +72,7 @@ struct Camera
 } camera;
 
 glm::vec2 lastMousePosition;
+glm::vec3 worldLightPosition;
 float mouseSensitivity = 0.5;
 
 void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -207,11 +208,10 @@ void updateUniformBuffer(const VkDevice &device, const Model& model, RenderFrame
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    ImGui::DragFloat3("Light Position", (float*)  &uniform.lightPosition, 0.1f);
+    ImGui::DragFloat3("Light Position", (float*)  &worldLightPosition, 0.1f);
     ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
     ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a, 0.1f);
     ImGui::Checkbox("Use normal mapping", &uniform.normalMapping);
-    uniform.viewPosition = camera.eye;
     uniform.model =
             glm::translate(glm::mat4(1.0f), model.position()) *
             glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -219,6 +219,10 @@ void updateUniformBuffer(const VkDevice &device, const Model& model, RenderFrame
     uniform.projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f);
     uniform.projection[1][1] *= -1;
     uniform.invModel = glm::inverse(uniform.model);
+
+    /* Convert from world space to model space */
+    uniform.viewPosition = uniform.invModel * glm::vec4(camera.eye, 1.0f);
+    uniform.lightPosition = uniform.invModel * glm::vec4(worldLightPosition, 1.0f);
 
     void *data;
     vkMapMemory(device, frame.uniformBuffer.memory.vkDeviceMemory, 0, sizeof(uniform), 0, &data);

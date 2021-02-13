@@ -25,7 +25,7 @@ void main()
 {
     out_uv = in_uv;
     out_tangent = in_tangent;
-    out_normal = normalize(uniformObject.model * vec4(in_normal, 0.0)).xyz;
-    out_pos = (uniformObject.model * vec4(in_position, 1.0)).xyz;
+    out_normal = in_normal;
+    out_pos = in_position;
     gl_Position = uniformObject.projection * uniformObject.view * uniformObject.model * vec4(in_position, 1.0);
 }
