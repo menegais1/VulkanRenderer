@@ -4,6 +4,7 @@
 
 #include <tiny_obj_loader.h>
 #include <iostream>
+#include <glm/glm.hpp>
 #include "ObjectLoader.h"
 
 void ObjectLoader::loadPnuModel(const std::string &inputFile, std::vector<PnuVertexInput> &vertexInputs,
@@ -40,4 +41,31 @@ void ObjectLoader::loadPnuModel(const std::string &inputFile, std::vector<PnuVer
         indexVector.push_back(index.vertex_index);
     }
     std::cout << primaryMesh.name << " loaded!" << std::endl;
+}
+
+//https://bgolus.medium.com/normal-mapping-for-a-triplanar-shader-10bf39dca05a#0576
+//http://www.thetenthplanet.de/archives/1180
+//http://www.aclockworkberry.com/shader-derivative-functions/
+//https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+void ObjectLoader::calculateTangents(std::vector<PnuVertexInput> &vertexInputs, const std::vector<uint32_t>& vertexIndices) {
+    // FOR EACH TRIANGLE, CALCULATE THE TANGENT AND STORE THE SUM OF ALL TANGENTS IN THE SAME VERTEX IN A TEMPORARY ARRAY
+    for (int i = 0; i < vertexIndices.size(); i += 3) {
+        PnuVertexInput p0 = vertexInputs[vertexIndices[i]];
+        PnuVertexInput p1 = vertexInputs[vertexIndices[i + 1]];
+        PnuVertexInput p2 = vertexInputs[vertexIndices[i + 2]];
+
+        glm::vec3 e1 = p1.position - p0.position;
+        glm::vec3 e2 = p2.position - p0.position;
+        glm::vec3 n = glm::cross(e1, e2);
+        glm::mat3 A = glm::mat3(e1, e2, n);
+        glm::mat3 AI = glm::inverse(A);
+        glm::vec3 tangent = AI * glm::vec3(p1.uv.x - p0.uv.x, p2.uv.x - p0.uv.x, 0);
+        vertexInputs[vertexIndices[i]].tangent += tangent;
+        vertexInputs[vertexIndices[i + 1]].tangent += tangent;
+        vertexInputs[vertexIndices[i + 2]].tangent += tangent;
+    }
+    for (int i = 0; i < vertexInputs.size(); i++)
+    {
+        vertexInputs[i].tangent = glm::normalize(vertexInputs[i].tangent);
+    }
 }

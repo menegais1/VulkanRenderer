@@ -14,7 +14,6 @@ layout(binding = 0) uniform UniformBufferObject
     mat4 model;
     mat4 view;
     mat4 projection;
-    mat4 invModel;
 } uniformObject;
 
 layout(location = 0) out vec3 out_normal;

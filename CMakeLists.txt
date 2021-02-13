@@ -16,5 +16,4 @@ add_executable(VulkanBase
         Dependencies/stb/stb_image.h
         ${Source}
         ${Dear})
-
 target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)

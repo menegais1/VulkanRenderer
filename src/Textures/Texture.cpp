@@ -2,8 +2,8 @@
 // Created by Lorenzo on 2/11/12021.
 //
 
-#include <cassert>
 #include <iostream>
+#include <filesystem>
 #include "Texture.h"
 #include "../../Dependencies/stb/stb_image.h"
 #include "../Refactoring/VulkanCreateFunctions.h"
@@ -13,34 +13,37 @@
 Texture::Texture(const VkDevice& vkDevice, const std::string& path, vk::HostDeviceTransfer& hostDeviceTransfer,
                  const std::vector<uint32_t>& graphicsAndTransferQueues, const vk::CommandBuffer& commandBuffer)
 {
-
-    int width, height, channels = 0;
-    unsigned char *result = stbi_load(path.c_str(), &width, &height, &channels, 0);
-
-    assert(channels == 3 && "Expected three channels for the texture conversion from RGB32 to RGBA32");
-
-    int expectedChannels = 4;
-    auto *convertedResult = new float[width * height * expectedChannels];
-    for (int i = 0; i < width * height; i++) {
-        for (int j = 0; j < channels; j++) {
-            convertedResult[(i * expectedChannels) + j] = result[(i * channels) + j] / 255.0f;
+    std::filesystem::path texturePath(path);
+    std::cout << "Loading " << texturePath.filename().string() << std::endl;
+    int width, height, textureChannels, desiredChannels = 4;
+    unsigned char *result = stbi_load(path.c_str(), &width, &height, &textureChannels, desiredChannels);
+    if (result == nullptr)
+    {
+        if (stbi_failure_reason())
+        {
+            std::cerr << stbi_failure_reason();
         }
-        convertedResult[(i * expectedChannels) + (expectedChannels - 1)] = 1.0f; // Opaque
+        else
+        {
+            std::cerr << "Failed for unknown reasons";
+        }
+        exit(-1);
     }
-    std::cout << "Loaded converted image " << convertedResult[40] << " " << convertedResult[41] << " " << convertedResult[42] << " " << convertedResult[43] << std::endl;
-    std::cout << "Loaded original image " << (unsigned int) result[40] << " " << (unsigned int) result[41] << " " << (unsigned int) result[42] << " " << (unsigned int) result[43] << std::endl;
-    std::cout << "w:" << width << " h:" << height << " c:" << channels << std::endl;
-    image = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R32G32B32A32_SFLOAT,
+    std::cout << texturePath.filename().string() << " loaded from disk. (" << width << "x" << height << "x" << textureChannels << ")" << std::endl;
+
+
+    image = vk::createImage(vkDevice, vk::imageCreateInfo(0, VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB,
                                                           vk::extent3D(width, height, 1), 1, 1, VK_SAMPLE_COUNT_1_BIT,
                                                           VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                                                           VK_SHARING_MODE_CONCURRENT, graphicsAndTransferQueues, VK_IMAGE_LAYOUT_UNDEFINED));
-    std::cout << "Texture loaded" << std::endl;
+
+
     VkMemoryRequirements requirements = vk::getImageMemoryRequirements(vkDevice, image);
     AllocationBlock memory = VMA::getInstance().vmalloc(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     vkBindImageMemory(vkDevice, image, memory.vkDeviceMemory, memory.vkOffset);
     imageView = vk::createImageView(vkDevice,
                                     vk::imageViewCreateInfo(image, VK_IMAGE_VIEW_TYPE_2D,
-                                                                VK_FORMAT_R32G32B32A32_SFLOAT,
+                                                            VK_FORMAT_R8G8B8A8_SRGB,
                                                                 {VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
                                                                  VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY},
                                                                 vk::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT,
@@ -66,7 +69,7 @@ Texture::Texture(const VkDevice& vkDevice, const std::string& path, vk::HostDevi
 
     });
 
-    hostDeviceTransfer.transferImageFromBuffer(width, height, expectedChannels, sizeof(float), convertedResult, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    hostDeviceTransfer.transferImageFromBuffer(width, height, desiredChannels, sizeof(uint8_t), result, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     commandBuffer.submitOneTime({}, {}, &waitDstFlags, [this](VkCommandBuffer commandBuffer) {
@@ -79,6 +82,8 @@ Texture::Texture(const VkDevice& vkDevice, const std::string& path, vk::HostDevi
                              0, nullptr, 1, &imageReadMemoryBarrier);
     });
 
+    std::cout << texturePath.filename().string() << " loaded" << std::endl;
+    delete result;
 
 }
 

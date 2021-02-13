@@ -13,7 +13,6 @@ layout(binding = 0) uniform UniformBufferObject
     mat4 model;
     mat4 view;
     mat4 projection;
-    mat4 invModel;
 } uniformObject;
 
 layout(binding = 1) uniform sampler2D albedoSampler;
@@ -31,6 +30,7 @@ float smithGeometry(vec3 normal, vec3 view, vec3 light, float roughness);
 vec3 schlickFresnel(float cosTheta, vec3 F0);
 vec3 getPerturbedNormal();
 
+/* Metallic-Roughness workflow */
 void main()
 {
     /* Normal calculation */
@@ -90,7 +90,7 @@ void main()
     color = pow(color, vec3(1.0f/2.2f));
 
     /* Emissive is added after gamma correction*/
-    color += emissive;
+    color += emissive * 10;
     outFragColor = vec4(color, 1.0);
 }
 

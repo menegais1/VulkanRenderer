@@ -48,5 +48,5 @@ void main()
     vec3 lightDir = normalize(model_light - in_pos.xyz);
     float diff = max(dot(perturbedNormal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
-    outFragColor = vec4(diffuse + ambient, 1.0) * texture(albedo, in_uv);
+    outFragColor = vec4(diffuse, 1.0) * texture(albedo, in_uv);
 }

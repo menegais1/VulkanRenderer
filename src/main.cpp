@@ -34,26 +34,29 @@
 #include "Models/ObjectLoader.h"
 #include "Resources/ResourcesManager.h"
 #include "Textures/Texture.h"
+#include "Models/Model.h"
+#include "Models/DamagedHelmet.h"
+#include "Models/Human.h"
 
 int const WIDTH = 1200;
 int const HEIGHT = 720;
 
 struct Uniform
 {
-    bool normalMapping;
+    alignas(4) bool normalMapping;
     alignas(16) glm::vec3 lightPosition = glm::vec3(1.0, 1.0, 1.0);
     alignas(16) glm::vec3 viewPosition;
     alignas(16) glm::vec4 lightColor = glm::vec4(1.0, 1.0, 1.0, 1.0);
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 projection;
-    glm::mat4 invModel;
+    alignas(64) glm::mat4 model;
+    alignas(64) glm::mat4 view;
+    alignas(64) glm::mat4 projection;
+    alignas(64) glm::mat4 invModel;
 } uniform;
 
 struct Camera
 {
-    float speed = 2;
-    glm::vec3 eye = glm::vec3(0, 0, -5);
+    float speed = 20;
+    glm::vec3 eye = glm::vec3(0, 0, -1);
     glm::vec3 center = glm::vec3(0, 0, 0);
     glm::vec3 up = glm::vec3(0, 1, 0);
     glm::vec2 angle;
@@ -138,8 +141,6 @@ void mouseMovement(GLFWwindow *window, double xpos, double ypos) {
 
 }
 
-void calculateTangents(std::vector<PnuVertexInput> &vector, std::vector<uint32_t> vector1);
-
 std::vector<char> loadShader(const std::string &filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::in | std::ios::ate);
     if (!file.is_open()) {
@@ -199,7 +200,7 @@ VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo p
     return vk::createRenderPass(vkDevice, vk::renderPassCreateInfo(attachments, dependencies, subpasses));
 }
 
-void updateUniformBuffer(const VkDevice &device, RenderFrame frame)
+void updateUniformBuffer(const VkDevice &device, const Model& model, RenderFrame frame)
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -211,11 +212,13 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame)
     ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a, 0.1f);
     ImGui::Checkbox("Use normal mapping", &uniform.normalMapping);
     uniform.viewPosition = camera.eye;
-    uniform.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    uniform.model =
+            glm::translate(glm::mat4(1.0f), model.position()) *
+            glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     uniform.view = glm::lookAt(camera.eye, camera.center, camera.up);
     uniform.projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f);
-    uniform.invModel = glm::inverse(uniform.model);
     uniform.projection[1][1] *= -1;
+    uniform.invModel = glm::inverse(uniform.model);
 
     void *data;
     vkMapMemory(device, frame.uniformBuffer.memory.vkDeviceMemory, 0, sizeof(uniform), 0, &data);
@@ -224,7 +227,6 @@ void updateUniformBuffer(const VkDevice &device, RenderFrame frame)
 }
 
 int main() {
-
     AutoShaders::compile();
     GLFWwindow *window = setupGLFW();
     VulkanSetup vulkanSetup(window);
@@ -235,6 +237,9 @@ int main() {
     PhysicalDeviceInfo physicalDeviceInfo = vulkanSetup.physicalDeviceInfo;
     PresentationEngineInfo presentationEngineInfo = vulkanSetup.presentationEngineInfo;
     VkPipeline defaultPipeline;
+
+    //const Model& model = Human();
+    const Model& model = DamagedHelmet();
 
     VMA::getInstance().initialize(vkDevice, physicalDeviceInfo, new PassThroughAllocator());
     vk::Queue graphicsQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.graphicsFamily, 0);
@@ -247,10 +252,10 @@ int main() {
     ResourcesManager resourcesManager(vkDevice);
 
     resourcesManager.addUniformBufferLayout(renderFramesAmount);
-    resourcesManager.addTextureSamplerLayout(1);
-    resourcesManager.addTextureSamplerLayout(1);
-    resourcesManager.addTextureSamplerLayout(1);
-    resourcesManager.addTextureSamplerLayout(1);
+    for (int i = 0; i < model.textures().size(); i++)
+    {
+        resourcesManager.addTextureSamplerLayout(1);
+    }
 
     auto descriptorSetLayouts = resourcesManager.commitDescriptorBindings();
 
@@ -287,14 +292,13 @@ int main() {
         colorBlendAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_A_BIT | VK_COLOR_COMPONENT_R_BIT |
                                                    VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
 
-
         VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = vk::pipelineLayoutCreateInfo(descriptorSetLayouts, {});
         vkCreatePipelineLayout(vkDevice, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout);
         float blendConstants[4] = {1, 1, 1, 1};
         std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments = {colorBlendAttachmentState};
         VkPipelineColorBlendStateCreateInfo colorBlendState = vk::pipelineColorBlendStateCreateInfo(colorBlendAttachments, blendConstants, VK_FALSE, VK_LOGIC_OP_NO_OP);
-        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.vert.spv"));
-        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/PBR.frag.spv"));
+        auto vertexBytes = loadShader(FileLoader::getPath("Shaders/Compiled/" + model.shader() + ".vert.spv"));
+        auto fragmentBytes = loadShader(FileLoader::getPath("Shaders/Compiled/" + model.shader() + ".frag.spv"));
         VkShaderModuleCreateInfo vertexShaderCreateInfo = vk::shaderModuleCreateInfo(vertexBytes);
         VkShaderModuleCreateInfo fragmentShaderCreateInfo = vk::shaderModuleCreateInfo(fragmentBytes);
 
@@ -364,8 +368,8 @@ int main() {
 
     std::vector<PnuVertexInput> vertexInputs;
     std::vector<uint32_t> indexVector;
-    ObjectLoader::loadPnuModel(FileLoader::getPath("Models/DamagedHelmet/DamagedHelmet.obj"), vertexInputs, indexVector);
-    calculateTangents(vertexInputs, indexVector);
+    ObjectLoader::loadPnuModel(model.meshPath(), vertexInputs, indexVector);
+    ObjectLoader::calculateTangents(vertexInputs, indexVector);
     vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(PnuVertexInput) * vertexInputs.size(), graphicsAndTransferQueues,
                                          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_CONCURRENT, 0,
                                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -377,14 +381,13 @@ int main() {
 
     vk::CommandBuffer commandBuffer = vk::CommandBuffer(vkDevice, graphicsQueue, graphicsPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-    Texture albedo(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_baseColor.jpeg"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
-    Texture normal(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_normal.jpeg"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
-    Texture metallicRoughness(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_metallicRoughness.png"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
-    Texture emissive(vkDevice, FileLoader::getPath("Models/DamagedHelmet/Textures/Material_MR_emissive.jpeg"), hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
+    std::vector<Texture> textures;
+    for (const auto& texture : model.textures())
+    {
+        textures.emplace_back(vkDevice, texture, hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
+    }
 
     auto descriptorPool = resourcesManager.createDescriptorPools();
-
-    int binding = 0;
 
     // Todo: Move to Resources Manager
     VkDescriptorSetAllocateInfo vkDescriptorSetAllocateInfo = vk::descriptorSetAllocateInfo(descriptorPool, descriptorSetLayouts);
@@ -397,21 +400,20 @@ int main() {
         VkDescriptorBufferInfo vkUniformBufferInfo = vk::descriptorBufferInfo(renderFrame.uniformBuffer.buffer, 0,
                                                                               renderFrame.uniformBuffer.size);
         std::vector<VkDescriptorBufferInfo> descriptorBufferInfoVector = {vkUniformBufferInfo};
-        VkWriteDescriptorSet uniformDescriptorSetWrite = vk::writeDescriptorSet(descriptorBufferInfoVector, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorSet, binding, 0);
+        VkWriteDescriptorSet uniformDescriptorSetWrite = vk::writeDescriptorSet(descriptorBufferInfoVector, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorSet, 0, 0);
         descriptorWriteSet.push_back(uniformDescriptorSetWrite);
 
         vkUpdateDescriptorSets(vkDevice, descriptorWriteSet.size(), descriptorWriteSet.data(), 0, nullptr);
     }
 
-    binding++;
+    uint32_t binding = 1;
 
-    std::vector<VkWriteDescriptorSet> descriptorSets =
-            {
-                    albedo.getWriteDescriptorSet(binding++, descriptorSet),
-                    normal.getWriteDescriptorSet(binding++, descriptorSet),
-                    metallicRoughness.getWriteDescriptorSet(binding++, descriptorSet),
-                    emissive.getWriteDescriptorSet(binding++, descriptorSet)
-            };
+    std::vector<VkWriteDescriptorSet> descriptorSets;
+    for (auto& texture : textures)
+    {
+        descriptorSets.push_back(texture.getWriteDescriptorSet(binding++, descriptorSet));
+    }
+
     vkUpdateDescriptorSets(vkDevice, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 
 
@@ -435,7 +437,7 @@ int main() {
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
-            updateUniformBuffer(vkDevice, currentFrame);
+            updateUniformBuffer(vkDevice, model, currentFrame);
             ImGui::Render();
 
             std::vector<VkImageView> framebufferAttachments = {swapchainImageViews[swapchainImageIndex], depthBufferView};
@@ -483,31 +485,4 @@ int main() {
     vkDestroyInstance(vkInstance, nullptr);
     glfwDestroyWindow(window);
     glfwTerminate();
-}
-
-//https://bgolus.medium.com/normal-mapping-for-a-triplanar-shader-10bf39dca05a#0576
-//http://www.thetenthplanet.de/archives/1180
-//http://www.aclockworkberry.com/shader-derivative-functions/
-//https://learnopengl.com/Advanced-Lighting/Normal-Mapping
-void calculateTangents(std::vector<PnuVertexInput> &vertexInputs, std::vector<uint32_t> vertexIndices) {
-    // FOR EACH TRIANGLE, CALCULATE THE TANGENT AND STORE THE SUM OF ALL TANGENTS IN THE SAME VERTEX IN A TEMPORARY ARRAY
-    for (int i = 0; i < vertexIndices.size(); i += 3) {
-        PnuVertexInput p0 = vertexInputs[vertexIndices[i]];
-        PnuVertexInput p1 = vertexInputs[vertexIndices[i + 1]];
-        PnuVertexInput p2 = vertexInputs[vertexIndices[i + 2]];
-
-        glm::vec3 e1 = p1.position - p0.position;
-        glm::vec3 e2 = p2.position - p0.position;
-        glm::vec3 n = glm::cross(e1, e2);
-        glm::mat3 A = glm::mat3(e1, e2, n);
-        glm::mat3 AI = glm::inverse(A);
-        glm::vec3 tangent = AI * glm::vec3(p1.uv.x - p0.uv.x, p2.uv.x - p0.uv.x, 0);
-        vertexInputs[vertexIndices[i]].tangent += tangent;
-        vertexInputs[vertexIndices[i + 1]].tangent += tangent;
-        vertexInputs[vertexIndices[i + 2]].tangent += tangent;
-    }
-    for (auto & vertexInput : vertexInputs)
-    {
-        vertexInput.tangent = glm::normalize(vertexInput.tangent);
-    }
 }
