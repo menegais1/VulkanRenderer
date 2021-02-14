@@ -37,12 +37,12 @@
 #include "Models/Model.h"
 #include "Models/DamagedHelmet.h"
 #include "Models/Human.h"
+#include "Refactoring/DescriptorSetLayout.h"
 
 int const WIDTH = 1200;
 int const HEIGHT = 720;
 
-struct Uniform
-{
+struct Uniform {
     alignas(4) bool normalMapping;
     alignas(16) glm::vec3 lightPosition = glm::vec3(1.0, 1.0, 1.0);
     alignas(16) glm::vec3 viewPosition;
@@ -53,8 +53,7 @@ struct Uniform
     alignas(64) glm::mat4 invModel;
 } uniform;
 
-struct Camera
-{
+struct Camera {
     float speed = 20;
     glm::vec3 eye = glm::vec3(0, 0, 3);
     glm::vec3 center = glm::vec3(0, 0, 0);
@@ -201,15 +200,14 @@ VkRenderPass createDefaultRenderPass(VkDevice vkDevice, PresentationEngineInfo p
     return vk::createRenderPass(vkDevice, vk::renderPassCreateInfo(attachments, dependencies, subpasses));
 }
 
-void updateUniformBuffer(const VkDevice &device, const Model& model, RenderFrame frame)
-{
+void updateUniformBuffer(const VkDevice &device, const Model &model, RenderFrame frame) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    ImGui::DragFloat3("Light Position", (float*)  &worldLightPosition, 0.1f);
-    ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
+    ImGui::DragFloat3("Light Position", (float *) &worldLightPosition, 0.1f);
+    ImGui::ColorPicker3("Light Color", (float *) &uniform.lightColor);
     ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a, 0.1f);
     ImGui::Checkbox("Use normal mapping", &uniform.normalMapping);
     uniform.model =
@@ -243,7 +241,7 @@ int main() {
     VkPipeline defaultPipeline;
 
     //const Model& model = Human();
-    const Model& model = DamagedHelmet();
+    const Model &model = DamagedHelmet();
 
     VMA::getInstance().initialize(vkDevice, physicalDeviceInfo, new PassThroughAllocator());
     vk::Queue graphicsQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.graphicsFamily, 0);
@@ -256,11 +254,15 @@ int main() {
     ResourcesManager resourcesManager(vkDevice);
 
     resourcesManager.addUniformBufferLayout(renderFramesAmount);
-    for (int i = 0; i < model.textures().size(); i++)
-    {
+    for (int i = 0; i < model.textures().size(); i++) {
         resourcesManager.addTextureSamplerLayout(1);
     }
 
+    vk::DescriptorSetLayout descriptorSetLayout = vk::DescriptorSetLayout(vkDevice)
+            .addBinding("tex_albedo", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addBinding("tex_normal", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .addBinding("tex_metallic", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT)
+            .build();
     auto descriptorSetLayouts = resourcesManager.commitDescriptorBindings();
 
     VkPipelineLayout pipelineLayout;
@@ -385,8 +387,7 @@ int main() {
     vk::CommandBuffer commandBuffer = vk::CommandBuffer(vkDevice, graphicsQueue, graphicsPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
     std::vector<Texture> textures;
-    for (const auto& texture : model.textures())
-    {
+    for (const auto &texture : model.textures()) {
         textures.emplace_back(vkDevice, texture, hostDeviceTransfer, graphicsAndTransferQueues, commandBuffer);
     }
 
@@ -412,8 +413,7 @@ int main() {
     uint32_t binding = 1;
 
     std::vector<VkWriteDescriptorSet> descriptorSets;
-    for (auto& texture : textures)
-    {
+    for (auto &texture : textures) {
         descriptorSets.push_back(texture.getWriteDescriptorSet(binding++, descriptorSet));
     }
 

@@ -78,5 +78,5 @@ add_executable(VulkanBase
         src/Textures/Texture.cpp
         src/Textures/Texture.h
         src/Resources/ResourcesManager.h
-        src/Resources/ResourcesManager.cpp)
+        src/Resources/ResourcesManager.cpp src/Refactoring/DescriptorSetLayout.cpp src/Refactoring/DescriptorSetLayout.h src/Refactoring/DescriptorSet.cpp src/Refactoring/DescriptorSet.h)
 target_link_libraries(VulkanBase glfw glm ${GLFW_LIBRARIES} Vulkan::Vulkan)
