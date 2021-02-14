@@ -14,7 +14,6 @@ vk::HostDeviceTransfer::HostDeviceTransfer(VkDevice vkDevice, vk::Queue transfer
     transferCommandBufferAllocateInfo = vk::commandBufferAllocateInfo(transferBuffersPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
     transferCommandBuffer = vk::allocateCommandBuffers(vkDevice, transferCommandBufferAllocateInfo, 1)[0];
     transferCompleted = vk::createFence(vkDevice, vk::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT));
-//    transferExecuting = vk::createSemaphore(vkDevice, vk::semaphoreCreateInfo());
     // Allocate a default buffer of 1 MB
     allocateStagingBuffer(1024 * 1024 * 10);
 }
@@ -70,8 +69,8 @@ void vk::HostDeviceTransfer::allocateStagingBuffer(VkDeviceSize size) {
     stagingBuffer = vk::Buffer(vkDevice, size, {physicalDeviceInfo.queueFamilies.transferFamily},
                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, 0,
                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    vkMapMemory(vkDevice, stagingBuffer.memory.vkDeviceMemory, stagingBuffer.memory.vkOffset, size, 0, &mappedMemory);
-
+    vk::VK_ASSERT(vkMapMemory(vkDevice, stagingBuffer.memory.vkDeviceMemory, stagingBuffer.memory.vkOffset, size, 0, &mappedMemory));
+    bufferAllocated = true;
 }
 
 void vk::HostDeviceTransfer::submitOneTimeTransferBuffer(const std::function<void(VkCommandBuffer)>& callback) const

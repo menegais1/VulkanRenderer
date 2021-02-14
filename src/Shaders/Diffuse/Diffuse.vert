@@ -17,20 +17,16 @@ layout(binding = 0) uniform UniformBufferObject
     mat4 invModel;
 } uniformObject;
 
-layout(location = 0) out vec3 out_normal;
+layout(location = 0) out vec3 out_pos;
 layout(location = 1) out vec2 out_uv;
-layout(location = 2) out vec3 out_pos;
-layout(location = 3) out vec3 out_light;
-layout(location = 4) out vec3 out_tangent;
+layout(location = 2) out vec3 out_normal;
+layout(location = 3) out vec3 out_tangent;
 
 void main()
 {
     out_uv = in_uv;
     out_normal = in_normal;
-    gl_Position = uniformObject.projection * uniformObject.view * uniformObject.model * vec4(in_position, 1.0);
     out_pos = in_position;
     out_tangent = in_tangent;
-
-    vec3 lightPos = uniformObject.lightPosition;
-    out_light = lightPos;
+    gl_Position = uniformObject.projection * uniformObject.view * uniformObject.model * vec4(in_position, 1.0);
 }

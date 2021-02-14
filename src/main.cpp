@@ -369,7 +369,6 @@ int main() {
 
     vk::HostDeviceTransfer hostDeviceTransfer = vk::HostDeviceTransfer(vkDevice, transferQueue);
 
-
     std::vector<PnuVertexInput> vertexInputs;
     std::vector<uint32_t> indexVector;
     ObjectLoader::loadPnuModel(model.meshPath(), vertexInputs, indexVector);
