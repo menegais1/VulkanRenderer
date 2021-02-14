@@ -40,11 +40,10 @@ void main()
     float ambientStrength = 0.05f;
     vec3 ambient = ambientStrength * lightColor;
 
-    vec3 perturbedNormal = getPerturbedNormal();
+    vec3 perturbedNormal = uniformObject.useNormalMapping ? getPerturbedNormal() : in_normal;
     // diffuse
-    vec3 model_light = (uniformObject.invModel * vec4(uniformObject.lightPosition, 1)).xyz;
-    vec3 lightDir = normalize(model_light - in_pos.xyz);
+    vec3 lightDir = normalize(uniformObject.lightPosition - in_pos.xyz);
     float diff = max(dot(perturbedNormal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
-    outFragColor = vec4(in_tangent, 1.0);
+    outFragColor = vec4(diffuse, 1.0) * texture(albedo, in_uv);
 }
