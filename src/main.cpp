@@ -56,7 +56,7 @@ struct Uniform
 struct Camera
 {
     float speed = 20;
-    glm::vec3 eye = glm::vec3(0, 0, -1);
+    glm::vec3 eye = glm::vec3(0, 0, 3);
     glm::vec3 center = glm::vec3(0, 0, 0);
     glm::vec3 up = glm::vec3(0, 1, 0);
     glm::vec2 angle;

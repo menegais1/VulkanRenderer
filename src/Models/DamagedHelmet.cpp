@@ -29,5 +29,5 @@ glm::vec3 DamagedHelmet::position() const
 
 std::string DamagedHelmet::shader() const
 {
-    return "Diffuse";
+    return "PBR";
 }
