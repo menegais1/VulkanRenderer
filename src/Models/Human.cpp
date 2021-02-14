@@ -19,7 +19,8 @@ std::vector<std::string> Human::textures() const
         FileLoader::getPath("Models/Human/Head/Textures/Colour_8k.jpg"),
         FileLoader::getPath("Models/Human/Head/Textures/NormalMap_SubDivision_1.jpg"),
         FileLoader::getPath("Models/Human/Head/Textures/Spec_8k.jpg"),
-        FileLoader::getPath("Models/Human/Head/Textures/Gloss_8k.jpg")
+        FileLoader::getPath("Models/Human/Head/Textures/Gloss_8k.jpg"),
+        FileLoader::getPath("Models/Human/Head/Textures/MicroNormal.jpg"),
     };
 }
 

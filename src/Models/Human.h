@@ -13,7 +13,7 @@ class Human : public Model
     [[nodiscard]] std::string meshPath() const override;
     [[nodiscard]] std::vector<std::string> textures() const override;
     [[nodiscard]] glm::vec3 position() const override;
-    std::string shader() const override;
+    [[nodiscard]] std::string shader() const override;
 };
 
 

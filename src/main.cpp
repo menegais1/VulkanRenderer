@@ -38,12 +38,15 @@
 #include "Models/DamagedHelmet.h"
 #include "Models/Human.h"
 
-int const WIDTH = 1200;
-int const HEIGHT = 720;
+int const WIDTH = 1920;
+int const HEIGHT = 1080;
 
 struct Uniform
 {
-    alignas(4) bool normalMapping;
+    alignas(4) bool normalMapping = true;
+    alignas(4) float normalStrength = 0.44f;
+    alignas(4) float detailNormalTiling = 50;
+    alignas(4) float detailNormalStrength = 0.8f;
     alignas(16) glm::vec3 lightPosition = glm::vec3(1.0, 1.0, 1.0);
     alignas(16) glm::vec3 viewPosition;
     alignas(16) glm::vec4 lightColor = glm::vec4(1.0, 1.0, 1.0, 1.0);
@@ -55,7 +58,7 @@ struct Uniform
 
 struct Camera
 {
-    float speed = 20;
+    float speed = 5;
     glm::vec3 eye = glm::vec3(0, 0, -1);
     glm::vec3 center = glm::vec3(0, 0, 0);
     glm::vec3 up = glm::vec3(0, 1, 0);
@@ -72,8 +75,10 @@ struct Camera
 } camera;
 
 glm::vec2 lastMousePosition;
-glm::vec3 worldLightPosition;
-float mouseSensitivity = 0.5;
+glm::vec3 worldLightPosition = glm::vec3(1, 1, 0);
+float mouseSensitivity = 0.5f;
+bool rotate = true;
+std::chrono::time_point<std::chrono::steady_clock> currentTime;
 
 void keyboard(GLFWwindow *window, int key, int scancode, int action, int mods) {
     float moveSpeed = camera.speed * 0.01f;
@@ -205,18 +210,30 @@ void updateUniformBuffer(const VkDevice &device, const Model& model, RenderFrame
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
+    ImGui::Checkbox("Rotate", &rotate);
+    ImGui::Checkbox("Use normal mapping", &uniform.normalMapping);
+    ImGui::SliderFloat("Camera Speed", &camera.speed, 0.01f, 20.0f);
+    ImGui::SliderFloat("Normal Strength", &uniform.normalStrength, 0.00f, 2.0f);
+    ImGui::SliderFloat("Detail Normal Tiling", &uniform.detailNormalTiling, 1.00f, 100.0f);
+    ImGui::SliderFloat("Detail Normal Strength (Skin)", &uniform.detailNormalStrength, 0.00f, 2.0f);
+    ImGui::DragFloat3("Light Position", (float*)  &worldLightPosition, 0.1f);
+    ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a, 0.1f);
+    ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
+
+    if (rotate)
+    {
+        currentTime = std::chrono::high_resolution_clock::now();
+    }
+    else
+    {
+    }
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    ImGui::DragFloat3("Light Position", (float*)  &worldLightPosition, 0.1f);
-    ImGui::ColorPicker3("Light Color", (float*)  &uniform.lightColor);
-    ImGui::DragFloat("Light Intensity ", &uniform.lightColor.a, 0.1f);
-    ImGui::Checkbox("Use normal mapping", &uniform.normalMapping);
     uniform.model =
             glm::translate(glm::mat4(1.0f), model.position()) *
             glm::rotate(glm::mat4(1.0f), time * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     uniform.view = glm::lookAt(camera.eye, camera.center, camera.up);
-    uniform.projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.1f, 10.0f);
+    uniform.projection = glm::perspective(glm::radians(45.0f), (float) WIDTH / (float) HEIGHT, 0.01f, 10.0f);
     uniform.projection[1][1] *= -1;
     uniform.invModel = glm::inverse(uniform.model);
 
@@ -242,8 +259,8 @@ int main() {
     PresentationEngineInfo presentationEngineInfo = vulkanSetup.presentationEngineInfo;
     VkPipeline defaultPipeline;
 
-    //const Model& model = Human();
-    const Model& model = DamagedHelmet();
+    const Model& model = Human();
+//    const Model& model = DamagedHelmet();
 
     VMA::getInstance().initialize(vkDevice, physicalDeviceInfo, new PassThroughAllocator());
     vk::Queue graphicsQueue = vk::Queue(vkDevice, physicalDeviceInfo.queueFamilies.graphicsFamily, 0);

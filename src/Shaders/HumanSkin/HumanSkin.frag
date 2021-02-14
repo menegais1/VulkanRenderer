@@ -1,12 +1,15 @@
 #version 450
-layout (location = 0) in vec3 in_normal;
-layout (location = 1) in vec2 in_uv;
-layout (location = 2) in vec3 in_pos;
+layout (location = 0) in vec3 in_pos;
+layout (location = 1) in vec3 in_normal;
+layout (location = 2) in vec2 in_uv;
 layout (location = 3) in vec3 in_tangent;
 
 layout(binding = 0) uniform UniformBufferObject
 {
     bool useNormalMapping;
+    float normalStrength;
+    float detailNormalTiling;
+    float detailNormalStrength;
     vec3 lightPosition;
     vec3 viewPosition;
     vec4 lightColor;
@@ -19,6 +22,8 @@ layout(binding = 1) uniform sampler2D albedoSampler;
 layout(binding = 2) uniform sampler2D normalSampler;
 layout(binding = 3) uniform sampler2D specularSampler;
 layout(binding = 4) uniform sampler2D glossinessSampler;
+layout(binding = 5) uniform sampler2D detailNormalSampler;
+
 
 // Todo: Micro normals (detail normal)
 // Todo: Subsurface Scaterring (Translucency map)
@@ -49,8 +54,8 @@ void main()
     /* However, I inspected the channels and confirmed my suspicions with blender */
     /* The actual encoding is: R = AO, G = Roughness & B = Metallic*/
     vec3 albedo = pow(texture(albedoSampler, in_uv).rgb, vec3(2.2f));
-    float roughness = 1.0 - pow(texture(glossinessSampler, in_uv).r, 2.2f);
-    float metallic = 0.5f; // Fixed in spec/gloss workflow
+    float roughness = 1.0 - texture(glossinessSampler, in_uv).r;
+    float metallic = 0.0f; // Fixed in spec/gloss workflow
 
     /* Refractive Index */
     vec3 F0 = texture(specularSampler, in_uv).xyz;
@@ -128,7 +133,14 @@ vec3 schlickFresnel(float cosTheta, vec3 F0)
 vec3 getPerturbedNormal()
 {
     mat3 TBN = mat3(in_tangent, normalize(cross(in_normal, in_tangent)), in_normal);
+
     vec3 sampledNormal = ((texture(normalSampler, in_uv) * 2.0) - 1).xyz;
     vec3 perturbedNormal = normalize(TBN * sampledNormal);
-    return perturbedNormal;
+
+    /* Additive detail normal*/
+    vec3 detailSampledNormal = ((texture(detailNormalSampler, in_uv * uniformObject.detailNormalTiling) * 2.0) - 1).xyz;
+    vec3 detailPerturbedNormal = normalize(TBN * detailSampledNormal);
+
+    perturbedNormal = mix(perturbedNormal, perturbedNormal + detailPerturbedNormal, uniformObject.detailNormalStrength);
+    return mix(in_normal, normalize(perturbedNormal), uniformObject.normalStrength);
 }
