@@ -21,7 +21,8 @@ layout(binding = 4) uniform sampler2D emissive;
 
 layout(location = 0) out vec4 outFragColor;
 
-vec3 getPerturbedNormal(){
+vec3 getPerturbedNormal()
+{
     mat3 TBN = mat3(in_tangent,normalize(cross(in_normal,in_tangent)),in_normal);
     vec3 sampledNormal = ((texture(normal, in_uv) * 2.0) - 1).xyz;
     vec3 perturbedNormal = normalize(TBN * sampledNormal);
@@ -36,12 +37,11 @@ void main()
     float ambientStrength = 0.05f * uniformObject.geometry;
     vec3 ambient = ambientStrength * lightColor;
 
-
     vec3 perturbedNormal = getPerturbedNormal();
     // diffuse
     vec3 model_light = (uniformObject.invModel * vec4(in_light,1)).xyz;
     vec3 lightDir = normalize(model_light - in_pos.xyz);
     float diff = max(dot(perturbedNormal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
-    outFragColor = vec4(diffuse + ambient, 1.0) * texture(albedo, in_uv);
+    outFragColor = vec4(diffuse, 1.0) * texture(albedo, in_uv);
 }

@@ -24,3 +24,8 @@ std::vector<VkVertexInputAttributeDescription> PnuVertexInput::getInputAttribute
 }
 
 PnuVertexInput::PnuVertexInput() {}
+
+bool PnuVertexInput::operator==(const PnuVertexInput &other) const
+{
+    return position == other.position && uv == other.uv && normal == other.normal;
+}

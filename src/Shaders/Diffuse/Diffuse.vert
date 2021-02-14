@@ -27,6 +27,6 @@ void main()
     out_pos = in_position;
     out_tangent = in_tangent;
 
-    vec3 lightPos = vec3(0,0, 2);
+    vec3 lightPos = vec3(0, 0, 2);
     out_light = lightPos;
 }

@@ -1,6 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define TINYOBJLOADER_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 
@@ -58,7 +57,7 @@ struct Uniform {
     glm::vec4 viewPosition;
 };
 
-void calculateTangents(std::vector<PnuVertexInput> &vector, std::vector<uint32_t> vector1);
+void calculateTangents(std::vector<PnuVertexInput> &vertices, const std::vector<uint32_t>& indices);
 
 std::vector<char> loadShader(const std::string &filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::in | std::ios::ate);
@@ -288,8 +287,8 @@ int main() {
     vk::HostDeviceTransfer hostDeviceTransfer = vk::HostDeviceTransfer(vkDevice, transferQueue);
 
 
-    std::vector<PnuVertexInput> vertexInputs;
-    std::vector<uint32_t> indexVector;
+    std::vector<PnuVertexInput> vertexInputs {};
+    std::vector<uint32_t> indexVector {};
     ObjectLoader::loadPnuModel(FileLoader::getPath("Models/DamagedHelmet/DamagedHelmet.obj"), vertexInputs, indexVector);
     calculateTangents(vertexInputs, indexVector);
     vk::Buffer vertexBuffer = vk::Buffer(vkDevice, sizeof(PnuVertexInput) * vertexInputs.size(), graphicsAndTransferQueues,
@@ -410,28 +409,47 @@ int main() {
     glfwTerminate();
 }
 
-//https://bgolus.medium.com/normal-mapping-for-a-triplanar-shader-10bf39dca05a#0576
+//https://bgolus.medium.com/normal-mapp ing-for-a-triplanar-shader-10bf39dca05a#0576
 //http://www.thetenthplanet.de/archives/1180
 //http://www.aclockworkberry.com/shader-derivative-functions/
 //https://learnopengl.com/Advanced-Lighting/Normal-Mapping
-void calculateTangents(std::vector<PnuVertexInput> &vertexInputs, std::vector<uint32_t> vertexIndices) {
+void calculateTangents(std::vector<PnuVertexInput> &vertices, const std::vector<uint32_t>& indices)
+{
+    std::cout << "Indices: " << indices.size() << std::endl;
     // FOR EACH TRIANGLE, CALCULATE THE TANGENT AND STORE THE SUM OF ALL TANGENTS IN THE SAME VERTEX IN A TEMPORARY ARRAY
-    for (int i = 0; i < vertexIndices.size(); i += 3) {
-        PnuVertexInput p0 = vertexInputs[vertexIndices[i]];
-        PnuVertexInput p1 = vertexInputs[vertexIndices[i + 1]];
-        PnuVertexInput p2 = vertexInputs[vertexIndices[i + 2]];
+    for (int i = 0; i < indices.size(); i += 3)
+    {
+        PnuVertexInput p0 = vertices[indices[i]];
+        PnuVertexInput p1 = vertices[indices[i + 1]];
+        PnuVertexInput p2 = vertices[indices[i + 2]];
 
         glm::vec3 e1 = p1.position - p0.position;
         glm::vec3 e2 = p2.position - p0.position;
+        /*
+
         glm::vec3 n = glm::cross(e1, e2);
         glm::mat3 A = glm::mat3(e1, e2, n);
         glm::mat3 AI = glm::inverse(A);
         glm::vec3 tangent = AI * glm::vec3(p1.uv.x - p0.uv.x, p2.uv.x - p0.uv.x, 0);
-        vertexInputs[vertexIndices[i]].tangent += tangent;
-        vertexInputs[vertexIndices[i + 1]].tangent += tangent;
-        vertexInputs[vertexIndices[i + 2]].tangent += tangent;
+        */
+
+        float x1 = p1.uv.x - p0.uv.x;
+        float x2 = p2.uv.x - p0.uv.x;
+        float y1 = p1.uv.y - p0.uv.y;
+        float y2 = p2.uv.y - p0.uv.y;
+
+        float r = 1.0F / (x1 * y2 - x2 * y1);
+        glm::vec3 t = (e1 * y2 - e2 * y1) * r;
+
+        vertices[indices[i]].tangent += t;
+        vertices[indices[i + 1]].tangent += t;
+        vertices[indices[i + 2]].tangent += t;
     }
-    for (int i = 0; i < vertexInputs.size(); i++) {
-        vertexInputs[i].tangent = glm::normalize(vertexInputs[i].tangent);
+    for (auto & vertexInput : vertices)
+    {
+        vertexInput.tangent = glm::normalize(vertexInput.tangent);
+
+        /* Calculate Handness */
+        //tangentArray[i].w = (Dot(Cross(t, b), n) > 0.0F) ? 1.0F : −1.0F;
     }
 }
