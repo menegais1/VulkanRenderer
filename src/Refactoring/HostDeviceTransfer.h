@@ -33,12 +33,12 @@ namespace vk {
         VkDevice vkDevice;
         PhysicalDeviceInfo physicalDeviceInfo;
         VkCommandPool transferBuffersPool;
-        VkCommandBufferAllocateInfo transferCommandBufferAllocateInfo;
+        VkCommandBufferAllocateInfo transferCommandBufferAllocateInfo{};
         VkCommandBuffer transferCommandBuffer;
         vk::Queue transferQueue;
         vk::Buffer stagingBuffer;
-        void *mappedMemory;
-        bool bufferAllocated;
+        void *mappedMemory{};
+        bool bufferAllocated = false;
 
         void allocateStagingBuffer(VkDeviceSize size);
     };
